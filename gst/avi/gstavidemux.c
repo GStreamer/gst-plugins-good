@@ -184,18 +184,15 @@ gst_avi_demux_reset (GstAviDemux * avi)
 }
 
 static gst_avi_index_entry *
-gst_avi_demux_index_next (GstAviDemux * avi,
-    gint stream_nr, gint start, guint32 flags)
+gst_avi_demux_index_next (GstAviDemux * avi, gint stream_nr, gint start)
 {
   gint i;
   gst_avi_index_entry *entry = NULL;
 
   for (i = start; i < avi->index_size; i++) {
     entry = &avi->index_entries[i];
-
-    if (entry->stream_nr == stream_nr && (entry->flags & flags) == flags) {
+    if (entry->stream_nr == stream_nr)
       break;
-    }
   }
 
   return entry;
@@ -210,16 +207,15 @@ gst_avi_demux_index_entry_for_time (GstAviDemux * avi,
 
   i = -1;
   do {
-    entry = gst_avi_demux_index_next (avi, stream_nr, i + 1, flags);
+    entry = gst_avi_demux_index_next (avi, stream_nr, i + 1);
     if (!entry)
       return NULL;
 
     i = entry->index_nr;
 
-    if (entry->ts <= time) {
+    if (entry->ts <= time && (entry->flags & flags) == flags)
       last_entry = entry;
-    }
-  } while (entry->ts <= time);
+  } while (entry->ts < time);
 
   return last_entry;
 }
@@ -233,16 +229,15 @@ gst_avi_demux_index_entry_for_byte (GstAviDemux * avi,
 
   i = -1;
   do {
-    entry = gst_avi_demux_index_next (avi, stream_nr, i + 1, flags);
+    entry = gst_avi_demux_index_next (avi, stream_nr, i + 1);
     if (!entry)
       return NULL;
 
     i = entry->index_nr;
 
-    if (entry->bytes_before <= byte) {
+    if (entry->bytes_before <= byte && (entry->flags & flags) == flags)
       last_entry = entry;
-    }
-  } while (entry->bytes_before <= byte);
+  } while (entry->bytes_before < byte);
 
   return last_entry;
 }
@@ -256,16 +251,15 @@ gst_avi_demux_index_entry_for_frame (GstAviDemux * avi,
 
   i = -1;
   do {
-    entry = gst_avi_demux_index_next (avi, stream_nr, i + 1, flags);
+    entry = gst_avi_demux_index_next (avi, stream_nr, i + 1);
     if (!entry)
       return NULL;
 
     i = entry->index_nr;
 
-    if (entry->frames_before <= frame) {
+    if (entry->frames_before <= frame && (entry->flags & flags) == flags)
       last_entry = entry;
-    }
-  } while (entry->frames_before <= frame);
+  } while (entry->frames_before < frame);
 
   return last_entry;
 }
@@ -497,7 +491,7 @@ gst_avi_demux_handle_src_event (GstPad * pad, GstEvent * event)
         case GST_FORMAT_BYTES:
         case GST_FORMAT_DEFAULT:
         case GST_FORMAT_TIME:{
-          gst_avi_index_entry *entry = NULL;
+          gst_avi_index_entry *entry = NULL, *real;
           gint64 desired_offset = GST_EVENT_SEEK_OFFSET (event);
           guint32 flags;
 
@@ -507,22 +501,31 @@ gst_avi_demux_handle_src_event (GstPad * pad, GstEvent * event)
           flags = GST_RIFF_IF_KEYFRAME;
           switch (GST_EVENT_SEEK_FORMAT (event)) {
             case GST_FORMAT_BYTES:
-              entry = gst_avi_demux_index_entry_for_byte (avi, stream->num,
+              entry = gst_avi_demux_index_entry_for_byte (avi, 0,       //stream->num,
                   desired_offset, flags);
+              real = gst_avi_demux_index_entry_for_byte (avi, stream->num,
+                  desired_offset, 0);
               break;
             case GST_FORMAT_DEFAULT:
-              entry = gst_avi_demux_index_entry_for_frame (avi, stream->num,
+              entry = gst_avi_demux_index_entry_for_frame (avi, 0,      //stream->num,
                   desired_offset, flags);
+              real = gst_avi_demux_index_entry_for_frame (avi, stream->num,
+                  desired_offset, 0);
               break;
             case GST_FORMAT_TIME:
-              entry = gst_avi_demux_index_entry_for_time (avi, stream->num,
+              entry = gst_avi_demux_index_entry_for_time (avi, 0,       //stream->num,
                   desired_offset, flags);
+              real = gst_avi_demux_index_entry_for_time (avi, stream->num,
+                  desired_offset, 0);
               break;
           }
 
+          if (!(flags & GST_SEEK_FLAG_ACCURATE))
+            real = entry;
+
           if (entry) {
             avi->seek_offset = entry->offset + avi->index_offset;
-            avi->last_seek = entry->ts;
+            avi->last_seek = real->ts;
             avi->seek_flush =
                 (GST_EVENT_SEEK_FLAGS (event) & GST_SEEK_FLAG_FLUSH);
             avi->seek_entry = entry->index_nr;
@@ -1984,6 +1987,14 @@ gst_avi_demux_process_next_entry (GstAviDemux * avi)
         GST_DEBUG_OBJECT (avi, "Skipping entry %d (%d, %p)",
             avi->current_entry - 1, entry->size, stream->pad);
         goto next;
+      } else if (GST_CLOCK_TIME_IS_VALID (avi->last_seek)) {
+        if (stream->strh->type != GST_RIFF_FCC_vids &&
+            entry->ts < avi->last_seek) {
+          GST_DEBUG_OBJECT (avi, "Doing keyframe sync");
+          goto next;
+        } else if (entry->ts >= avi->last_seek) {
+          avi->last_seek = GST_CLOCK_TIME_NONE;
+        }
       }
 
       if ((res = gst_pad_pull_range (avi->sinkpad, entry->offset +
