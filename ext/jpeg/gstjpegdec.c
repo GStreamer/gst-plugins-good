@@ -59,9 +59,12 @@ GST_DEBUG_CATEGORY (jpegdec_debug);
 static void gst_jpegdec_base_init (gpointer g_class);
 static void gst_jpegdec_class_init (GstJpegDec * klass);
 static void gst_jpegdec_init (GstJpegDec * jpegdec);
+static void gst_jpegdec_finalize (GObject * object);
 
 static void gst_jpegdec_chain (GstPad * pad, GstData * _data);
 static GstPadLinkReturn gst_jpegdec_link (GstPad * pad, const GstCaps * caps);
+
+static GstElementStateReturn gst_jpegdec_change_state (GstElement * element);
 
 static GstElementClass *parent_class = NULL;
 
@@ -124,10 +127,16 @@ static void
 gst_jpegdec_class_init (GstJpegDec * klass)
 {
   GstElementClass *gstelement_class;
+  GObjectClass *gobject_class;
 
+  gobject_class = (GObjectClass *) klass;
   gstelement_class = (GstElementClass *) klass;
 
   parent_class = g_type_class_ref (GST_TYPE_ELEMENT);
+
+  gstelement_class->change_state = gst_jpegdec_change_state;
+
+  gobject_class->finalize = gst_jpegdec_finalize;
 
   GST_DEBUG_CATEGORY_INIT (jpegdec_debug, "jpegdec", 0, "JPEG decoder");
 }
@@ -223,6 +232,17 @@ gst_jpegdec_init (GstJpegDec * jpegdec)
   jpegdec->jsrc.term_source = gst_jpegdec_term_source;
   jpegdec->cinfo.src = &jpegdec->jsrc;
 
+}
+
+static void
+gst_jpegdec_finalize (GObject * object)
+{
+
+  GstJpegDec *filter = GST_JPEGDEC (object);
+
+  jpeg_destroy_decompress (&filter->cinfo);
+
+  G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
 static GstPadLinkReturn
@@ -491,4 +511,35 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
   gst_pad_push (jpegdec->srcpad, GST_DATA (outbuf));
 
   gst_buffer_unref (buf);
+}
+
+static GstElementStateReturn
+gst_jpegdec_change_state (GstElement * element)
+{
+
+  GstJpegDec *filter = GST_JPEGDEC (element);
+
+  switch (GST_STATE_TRANSITION (element)) {
+    case GST_STATE_NULL_TO_READY:
+      GST_DEBUG ("gst_jpegdec_change_state: setting line buffers");
+      filter->line[0] = NULL;
+      filter->line[1] = NULL;
+      filter->line[2] = NULL;
+      break;
+    case GST_STATE_READY_TO_NULL:
+      g_free (filter->line[0]);
+      g_free (filter->line[1]);
+      g_free (filter->line[2]);
+      filter->line[0] = NULL;
+      filter->line[1] = NULL;
+      filter->line[2] = NULL;
+      break;
+    default:
+      break;
+  }
+
+  if (GST_ELEMENT_CLASS (parent_class)->change_state)
+    return GST_ELEMENT_CLASS (parent_class)->change_state (element);
+
+  return GST_STATE_SUCCESS;
 }
