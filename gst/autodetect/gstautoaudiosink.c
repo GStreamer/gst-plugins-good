@@ -137,7 +137,9 @@ gst_auto_audio_sink_compare_ranks (GstPluginFeature * f1, GstPluginFeature * f2)
 static GstElement *
 gst_auto_audio_sink_find_best (GstAutoAudioSink * sink)
 {
-  GList *list;
+  GList *list, *item;
+  GstElement *choice = NULL;
+  gboolean ss = TRUE;
 
   list = gst_registry_pool_feature_filter (
       (GstPluginFeatureFilter) gst_auto_audio_sink_factory_filter, FALSE, sink);
@@ -149,21 +151,54 @@ gst_auto_audio_sink_find_best (GstAutoAudioSink * sink)
    *    the user explicitely wants this to run... That is not easy.
    */
 
-  for (; list != NULL; list = list->next) {
-    GstElementFactory *f = GST_ELEMENT_FACTORY (list->data);
-    GstElement *el;
+  while (1) {
+    GST_LOG ("Trying to find %s", ss ? "soundservers" : "audio devices");
 
-    if ((el = gst_element_factory_create (f, "actual-sink"))) {
-      if (gst_element_set_state (el, GST_STATE_READY) == GST_STATE_SUCCESS) {
-        gst_element_set_state (el, GST_STATE_NULL);
-        return el;
+    for (item = list; item != NULL; item = item->next) {
+      GstElementFactory *f = GST_ELEMENT_FACTORY (item->data);
+      GstElement *el;
+
+      if ((el = gst_element_factory_create (f, "actual-sink"))) {
+        gboolean has_p = g_object_class_find_property (G_OBJECT_GET_CLASS (el),
+            "soundserver-running") ? TRUE : FALSE;
+
+        if (ss == has_p) {
+          if (ss) {
+            gboolean r;
+
+            g_object_get (G_OBJECT (el), "soundserver-running", &r, NULL);
+            if (r) {
+              GST_LOG ("%s - soundserver is running",
+                  GST_PLUGIN_FEATURE (f)->name);
+            } else {
+              GST_LOG ("%s - Soundserver is not running",
+                  GST_PLUGIN_FEATURE (f)->name);
+              goto next;
+            }
+          }
+          GST_LOG ("Testing %s", GST_PLUGIN_FEATURE (f)->name);
+          if (gst_element_set_state (el, GST_STATE_READY) == GST_STATE_SUCCESS) {
+            gst_element_set_state (el, GST_STATE_NULL);
+            GST_LOG ("This worked!");
+            choice = el;
+            goto done;
+          }
+        }
+
+      next:
+        gst_object_unref (GST_OBJECT (el));
       }
-
-      gst_object_unref (GST_OBJECT (el));
     }
+
+    if (!ss)
+      break;
+    ss = FALSE;
   }
 
-  return NULL;
+done:
+  g_list_free (list);
+
+  return choice;
 }
 
 static void

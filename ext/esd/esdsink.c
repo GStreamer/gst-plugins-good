@@ -52,7 +52,8 @@ enum
   ARG_MUTE,
   ARG_HOST,
   ARG_SYNC,
-  ARG_FALLBACK
+  ARG_FALLBACK,
+  ARG_SOUNDSERVER_RUNNING
 };
 
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE ("sink",
@@ -143,6 +144,10 @@ gst_esdsink_class_init (gpointer g_class, gpointer class_data)
           "Fall back to using OSS if Esound daemon is not present", FALSE,
           G_PARAM_READWRITE));
 #endif
+  g_object_class_install_property (gobject_class, ARG_SOUNDSERVER_RUNNING,
+      g_param_spec_boolean ("soundserver-running", "Whether soundserver runs",
+          "Indicates whether the soundserver is currently active",
+          TRUE, G_PARAM_READABLE));
 
   gobject_class->set_property = gst_esdsink_set_property;
   gobject_class->get_property = gst_esdsink_get_property;
@@ -336,6 +341,15 @@ done:
   gst_buffer_unref (buf);
 }
 
+static gboolean
+gst_esdsink_soundserver_running (GstEsdsink * esdsink)
+{
+  if (g_getenv ("ESPEAKER"))
+    return TRUE;
+
+  return system ("ps ax | grep esd | grep -v grep &> /dev/null") == 0;
+}
+
 static void
 gst_esdsink_set_property (GObject * object, guint prop_id, const GValue * value,
     GParamSpec * pspec)
@@ -389,6 +403,9 @@ gst_esdsink_get_property (GObject * object, guint prop_id, GValue * value,
     case ARG_FALLBACK:
       g_value_set_boolean (value, esdsink->fallback);
       break;
+    case ARG_SOUNDSERVER_RUNNING:
+      g_value_set_boolean (value, gst_esdsink_soundserver_running (esdsink));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -398,7 +415,7 @@ gst_esdsink_get_property (GObject * object, guint prop_id, GValue * value,
 gboolean
 gst_esdsink_factory_init (GstPlugin * plugin)
 {
-  if (!gst_element_register (plugin, "esdsink", GST_RANK_NONE,
+  if (!gst_element_register (plugin, "esdsink", GST_RANK_MARGINAL,
           GST_TYPE_ESDSINK))
     return FALSE;
 
