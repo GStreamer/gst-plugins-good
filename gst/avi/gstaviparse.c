@@ -23,7 +23,8 @@
 #include <config.h>
 #include <gst/gst.h>
 #include <gst/bytestream/bytestream.h>
-#include <gst/riff/riff.h>
+
+#include "riff.h"
 
 #define GST_TYPE_AVI_PARSE \
   (gst_avi_parse_get_type())
@@ -206,10 +207,9 @@ gst_avi_parse_loop (GstElement *element)
 {
   GstAviParse *avi_parse;
   GstRiffParse *rp;
+  GstBuffer *buf;
+  guint32 id;
   GstRiffReturn res;
-  gst_riff_chunk chunk;
-  guint32 data_size;
-  guint64 pos;
   
   g_return_if_fail (element != NULL);
   g_return_if_fail (GST_IS_AVI_PARSE (element));
@@ -218,35 +218,40 @@ gst_avi_parse_loop (GstElement *element)
 
   rp = avi_parse->rp;
 
-  pos = gst_bytestream_tell (rp->bs);
-
-  res = gst_riff_parse_next_chunk (rp, &chunk);
+  res = gst_riff_parse_next_chunk (rp, &id, &buf);
   if (res == GST_RIFF_EOS) { 
     gst_element_set_eos (element);
     return;
   }
 
-  switch (chunk.id) {
+  switch (id) {
     case GST_RIFF_TAG_RIFF:
     case GST_RIFF_TAG_LIST:
-      g_print ("%08llx: %4.4s %08x %4.4s\n", pos, (gchar *)&chunk.id, chunk.size, (gchar *)&chunk.type);
-      data_size = 0;
+    {
+      gst_riff_list *list;
+
+      list = (gst_riff_list *) GST_BUFFER_DATA (buf);
+
+      g_print ("%4.4s %08x %4.4s\n", (gchar *)&list->id, list->size, (gchar *)&list->type);
       break;
+    }
     default:
-      g_print ("%08llx: %4.4s %08x\n", pos, (gchar *)&chunk.id, chunk.size);
-      data_size = chunk.size;
+    {
+      gst_riff_chunk *chunk;
+
+      chunk = (gst_riff_chunk *) GST_BUFFER_DATA (buf);
+
+      g_print ("%4.4s %08x\n", (gchar *)&chunk->id, chunk->size);
       break;
+    }
   }
 
-  if (GST_PAD_IS_USABLE (avi_parse->srcpad) && data_size) {
-    GstBuffer *buf;
-
-    gst_riff_parse_peek (rp, &buf, data_size);
+  if (GST_PAD_IS_USABLE (avi_parse->srcpad)) {
     gst_pad_push (avi_parse->srcpad, buf);
   }
-  data_size = (data_size + 1) & ~1;
-
-  gst_riff_parse_flush (rp, data_size);
+  else {
+    gst_buffer_unref (buf);
+  }
 }
 
 static GstElementStateReturn

@@ -24,8 +24,8 @@
 
 #include <config.h>
 #include <gst/gst.h>
-#include <gst/bytestream/bytestream.h>
 #include <gst/riff/riff.h>
+#include <gst/bytestream/bytestream.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,6 +73,7 @@ typedef struct
   guint32 	current_byte;
   guint64 	delay;
   gboolean 	need_flush;
+  guint32	av_bps;
   guint64	end_pos;
 
   guint64	total_bytes;
@@ -82,13 +83,6 @@ typedef struct
 
 } avi_stream_context;
 
-typedef enum
-{
-  GST_AVI_DEMUX_START,
-  GST_AVI_DEMUX_HEADER,
-  GST_AVI_DEMUX_MOVI,
-} GstAviDemuxState;
-
 struct _GstAviDemux {
   GstElement 	 element;
 
@@ -97,9 +91,8 @@ struct _GstAviDemux {
 
   /* AVI decoding state */
   guint32 	 fcc_type;
-  GstAviDemuxState state;
 
-  GstByteStream	*bs;
+  GstByteStream *bs;
 
   gst_avi_index_entry *index_entries;
   gulong 	 index_size;
@@ -116,6 +109,7 @@ struct _GstAviDemux {
   gboolean 	 seek_pending;
   gint64 	 seek_offset;
   guint64 	 last_seek;
+  gboolean	 restart;
 };
 
 struct _GstAviDemuxClass {
