@@ -21,7 +21,7 @@
 #ifndef __GST_JPEGDEC_H__
 #define __GST_JPEGDEC_H__
 
-
+#include <setjmp.h>
 #include <gst/gst.h>
 /* this is a hack hack hack to get around jpeglib header bugs... */
 #ifdef HAVE_STDLIB_H
@@ -48,6 +48,11 @@ extern "C" {
 typedef struct _GstJpegDec GstJpegDec;
 typedef struct _GstJpegDecClass GstJpegDecClass;
 
+struct GstJpegDecErrorMgr {
+  struct jpeg_error_mgr pub;
+  jmp_buf setjmp_buffer;
+};
+
 struct _GstJpegDec {
   GstElement element;
 
@@ -71,7 +76,7 @@ struct _GstJpegDec {
   guchar **line[3];
 
   struct jpeg_decompress_struct cinfo;
-  struct jpeg_error_mgr jerr;
+  struct GstJpegDecErrorMgr jerr;
   struct jpeg_source_mgr jsrc;
 };
 

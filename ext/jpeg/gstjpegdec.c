@@ -21,10 +21,13 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
 #include <string.h>
 
-#include "gstjpegdec.h"
+#include <gst/gst-i18n-plugin.h>
 #include <gst/video/video.h>
+
+#include "gstjpegdec.h"
 
 /* elementfactory information */
 GstElementDetails gst_jpegdec_details = {
@@ -47,7 +50,7 @@ GST_DEBUG_CATEGORY (jpegdec_debug);
 /* I420 */
 #define I420_Y_ROWSTRIDE(width) (ROUND_UP_4(width))
 #define I420_U_ROWSTRIDE(width) (ROUND_UP_8(width)/2)
-#define I420_V_ROWSTRIDE(width) ((ROUND_UP_8(I420_Y_ROWSTRIDE(width)))/2)
+#define I420_V_ROWSTRIDE(width) (ROUND_UP_8(width)/2)
 
 #define I420_Y_OFFSET(w,h) (0)
 #define I420_U_OFFSET(w,h) (I420_Y_OFFSET(w,h)+(I420_Y_ROWSTRIDE(w)*ROUND_UP_2(h)))
@@ -185,6 +188,13 @@ gst_jpegdec_my_emit_message (j_common_ptr cinfo, int msg_level)
   // Do nothing
 }
 
+METHODDEF (void)
+gst_jpegdec_my_error_exit (j_common_ptr cinfo)
+{
+  (*cinfo->err->output_message) (cinfo);
+  longjmp (((struct GstJpegDecErrorMgr *) cinfo->err)->setjmp_buffer, 1);
+}
+
 static void
 gst_jpegdec_init (GstJpegDec * jpegdec)
 {
@@ -219,9 +229,10 @@ gst_jpegdec_init (GstJpegDec * jpegdec)
   /* setup jpeglib */
   memset (&jpegdec->cinfo, 0, sizeof (jpegdec->cinfo));
   memset (&jpegdec->jerr, 0, sizeof (jpegdec->jerr));
-  jpegdec->cinfo.err = jpeg_std_error (&jpegdec->jerr);
-  jpegdec->cinfo.err->output_message = gst_jpegdec_my_output_message;
-  jpegdec->cinfo.err->emit_message = gst_jpegdec_my_emit_message;
+  jpegdec->cinfo.err = jpeg_std_error (&jpegdec->jerr.pub);
+  jpegdec->jerr.pub.output_message = gst_jpegdec_my_output_message;
+  jpegdec->jerr.pub.emit_message = gst_jpegdec_my_emit_message;
+  jpegdec->jerr.pub.error_exit = gst_jpegdec_my_error_exit;
 
   jpeg_create_decompress (&jpegdec->cinfo);
 
@@ -425,6 +436,12 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
   jpegdec->jsrc.next_input_byte = data;
   jpegdec->jsrc.bytes_in_buffer = size;
 
+  if (setjmp (jpegdec->jerr.setjmp_buffer)) {
+    GST_ELEMENT_ERROR (jpegdec, LIBRARY, TOO_LAZY,
+        (_("Failed to decode JPEG image")), (NULL));
+    gst_buffer_unref (buf);
+    return;
+  }
 
   GST_LOG_OBJECT (jpegdec, "reading header %08lx", *(gulong *) data);
   jpeg_read_header (&jpegdec->cinfo, TRUE);
