@@ -88,8 +88,7 @@ fill_labels (void)
   {
     gchar *given, *wanted;
   }
-  cases[] =
-  {
+  cases[] = {
     /* Note: this list is simply ripped from soundcard.h. For
      * some people, some values might be missing (3D surround,
      * etc.) - feel free to add them. That's the reason why
@@ -295,19 +294,24 @@ gst_ossmixer_get_volume (GstMixer * mixer,
   g_return_if_fail (oss->mixer_fd != -1);
   g_return_if_fail (gst_ossmixer_contains_track (oss, osstrack));
 
+  /* get */
+  if (ioctl (oss->mixer_fd, MIXER_READ (osstrack->track_num), &volume) < 0) {
+    g_warning ("Error getting recording device (%d) volume: %s",
+        osstrack->track_num, strerror (errno));
+    volume = 0;
+  }
+
   if (track->flags & GST_MIXER_TRACK_MUTE) {
+    if (volume != 0) {
+      track->flags &= ~GST_MIXER_TRACK_MUTE;
+      goto the_else_case;
+    }
     volumes[0] = osstrack->lvol;
     if (track->num_channels == 2) {
       volumes[1] = osstrack->rvol;
     }
   } else {
-    /* get */
-    if (ioctl (oss->mixer_fd, MIXER_READ (osstrack->track_num), &volume) < 0) {
-      g_warning ("Error getting recording device (%d) volume: %s",
-          osstrack->track_num, strerror (errno));
-      volume = 0;
-    }
-
+  the_else_case:
     osstrack->lvol = volumes[0] = (volume & 0xff);
     if (track->num_channels == 2) {
       osstrack->rvol = volumes[1] = ((volume >> 8) & 0xff);
