@@ -281,7 +281,8 @@ gst_esdsink_chain (GstPad *pad, GstBuffer *buf)
  
     switch(GST_EVENT_TYPE(event)){
       case GST_EVENT_EOS:
-	break;
+	gst_pad_event_default(pad, event);
+	return;
       case GST_EVENT_DISCONTINUOUS:
       {
 	gint64 value;
@@ -293,11 +294,12 @@ gst_esdsink_chain (GstPad *pad, GstBuffer *buf)
 	  //esdsink->handled = 0;
 	}
  	//esdsink->resync = TRUE;
-	break;
+	gst_pad_event_default(pad, event);
+	return;
       }
       default:
 	gst_pad_event_default(pad, event);
-	break;
+	return;
     }
     gst_event_unref(event);
     return;
