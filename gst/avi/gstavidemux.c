@@ -686,6 +686,7 @@ gst_avi_demux_parse_index (GstAviDemux *avi_demux,
   guint32 got_bytes;
   gint i;
   gst_riff_index_entry *entry;
+  guint32 id;
 
   if (!gst_bytestream_seek (avi_demux->bs, filepos + offset, GST_SEEK_METHOD_SET)) {
     GST_INFO (GST_CAT_PLUGIN_INFO, "avidemux: could not seek to index");
@@ -709,7 +710,9 @@ gst_avi_demux_parse_index (GstAviDemux *avi_demux,
     goto end;
   }
 
-  if (gst_riff_fourcc_to_id (GST_BUFFER_DATA (buf)) != GST_RIFF_TAG_idx1) {
+  id = GUINT32_FROM_LE (*(guint32 *)GST_BUFFER_DATA (buf));
+
+  if (id != GST_RIFF_TAG_idx1) {
     GST_INFO (GST_CAT_PLUGIN_INFO, "avidemux: no index found");
     goto end;
   }
@@ -737,8 +740,10 @@ gst_avi_demux_parse_index (GstAviDemux *avi_demux,
     gint stream_nr;
     gst_avi_index_entry *target = &avi_demux->index_entries[i];
     GstFormat format;
-
-    stream_nr = CHUNKID_TO_STREAMNR (entry[i].id);
+    guint32 id;
+ 
+    id = GUINT32_FROM_LE (entry[i].id);
+    stream_nr = CHUNKID_TO_STREAMNR (id);
     if (stream_nr > avi_demux->num_streams || stream_nr < 0) {
       avi_demux->index_entries[i].stream_nr = -1;
       continue;
@@ -748,9 +753,9 @@ gst_avi_demux_parse_index (GstAviDemux *avi_demux,
     stream = &avi_demux->stream[stream_nr];
 
     target->index_nr = i;
-    target->flags    = entry[i].flags;
-    target->size     = entry[i].size;
-    target->offset   = entry[i].offset;
+    target->flags    = GUINT32_FROM_LE (entry[i].flags);
+    target->size     = GUINT32_FROM_LE (entry[i].size);
+    target->offset   = GUINT32_FROM_LE (entry[i].offset);
 
     /* figure out if the index is 0 based or relative to the MOVI start */
     if (i == 0) {
