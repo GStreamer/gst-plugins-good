@@ -75,6 +75,9 @@ flac_type_find (GstBuffer *buf, gpointer private)
   gint size;
   guint32 head = GUINT32_FROM_BE (*((guint32 *)GST_BUFFER_DATA (buf)));
 
+  if (GST_BUFFER_SIZE (buf) < 4)
+    return NULL;
+
   data = GST_BUFFER_DATA (buf);
   size = GST_BUFFER_SIZE (buf);
 
