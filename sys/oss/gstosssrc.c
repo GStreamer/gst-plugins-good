@@ -93,7 +93,7 @@ static void 			gst_osssrc_close_audio	(GstOssSrc *src);
 static gboolean 		gst_osssrc_open_audio	(GstOssSrc *src);
 static void 			gst_osssrc_sync_parms	(GstOssSrc *osssrc);
 
-static GstBuffer *		gst_osssrc_get		(GstPad *pad);
+static GstData *		gst_osssrc_get		(GstPad *pad);
 
 static GstElementClass *parent_class = NULL;
 //static guint gst_osssrc_signals[LAST_SIGNAL] = { 0 };
@@ -178,7 +178,7 @@ gst_osssrc_init (GstOssSrc *osssrc)
   osssrc->samples_since_basetime = 0;
 }
 
-static GstBuffer *
+static GstData *
 gst_osssrc_get (GstPad *pad)
 {
   GstOssSrc *src;
@@ -191,11 +191,9 @@ gst_osssrc_get (GstPad *pad)
 
   GST_DEBUG (GST_CAT_PLUGIN_INFO, "attempting to read something from soundcard\n");
 
-  buf = gst_buffer_new ();
+  buf = gst_pad_new_buffer (pad, src->bytes_per_read);
   g_return_val_if_fail (buf, NULL);
   
-  GST_BUFFER_DATA (buf) = (gpointer)g_malloc (src->bytes_per_read);
-
   readbytes = read (src->fd,GST_BUFFER_DATA (buf),
                     src->bytes_per_read);
 
@@ -210,9 +208,9 @@ gst_osssrc_get (GstPad *pad)
     		      "oss_src",
 		      "audio/raw",
         		"format",       GST_PROPS_STRING ("int"),
-		          "law",        GST_PROPS_INT (0),              //FIXME
-		          "endianness", GST_PROPS_INT (G_BYTE_ORDER),   //FIXME
-		          "signed",     GST_PROPS_BOOLEAN (TRUE),	//FIXME
+		          "law",        GST_PROPS_INT (0),              /* FIXME */
+		          "endianness", GST_PROPS_INT (G_BYTE_ORDER),   /* FIXME */
+		          "signed",     GST_PROPS_BOOLEAN (TRUE),	/* FIXME */
 		          "width",      GST_PROPS_INT (src->format),
 		          "depth",      GST_PROPS_INT (src->format),
 		          "rate",       GST_PROPS_INT (src->frequency),
@@ -235,7 +233,7 @@ gst_osssrc_get (GstPad *pad)
   src->samples_since_basetime += readsamples;
 
   GST_DEBUG (GST_CAT_PLUGIN_INFO, "pushed buffer from soundcard of %ld bytes, timestamp %lld\n", readbytes, GST_BUFFER_TIMESTAMP (buf));
-  return buf;
+  return GST_DATA (buf);
 }
 
 static void 

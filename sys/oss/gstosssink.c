@@ -150,16 +150,6 @@ gst_osssink_get_type (void)
   return osssink_type;
 }
 
-static GstBufferPool*
-gst_osssink_get_bufferpool (GstPad *pad)
-{
-  GstOssSink *oss;
-  
-  oss = GST_OSSSINK (gst_pad_get_parent(pad));
-
-  return oss->sinkpool;
-}
-
 static void
 gst_osssink_finalize (GObject *object)
 {
@@ -231,7 +221,6 @@ gst_osssink_init (GstOssSink *osssink)
 		  GST_PADTEMPLATE_GET (osssink_sink_factory), "sink");
   gst_element_add_pad (GST_ELEMENT (osssink), osssink->sinkpad);
   gst_pad_set_connect_function (osssink->sinkpad, gst_osssink_sinkconnect);
-  gst_pad_set_bufferpool_function (osssink->sinkpad, gst_osssink_get_bufferpool);
 
   gst_pad_set_chain_function (osssink->sinkpad, gst_osssink_chain);
 
@@ -249,8 +238,6 @@ gst_osssink_init (GstOssSink *osssink)
   /* gst_clock_register (osssink->clock, GST_OBJECT (osssink)); */
   osssink->bufsize = 4096;
   osssink->offset = 0LL;
-  /* 6 buffers per chunk by default */
-  osssink->sinkpool = gst_buffer_pool_get_default (osssink->bufsize, 6);
 
   osssink->length = 0;
   
@@ -586,7 +573,6 @@ gst_osssink_set_property (GObject *object, guint prop_id, const GValue *value, G
     case ARG_BUFFER_SIZE:
       if (osssink->bufsize == g_value_get_int (value)) break;
       osssink->bufsize = g_value_get_int (value);
-      osssink->sinkpool = gst_buffer_pool_get_default (osssink->bufsize, 6);
       g_object_notify (object, "buffer_size");
       break;
     default:

@@ -51,7 +51,7 @@ static GstElementStateReturn 	gst_ossgst_change_state	(GstElement *element);
 static void 			gst_ossgst_set_property		(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static void 			gst_ossgst_get_property		(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 
-static GstBuffer* 		gst_ossgst_get 			(GstPad *pad);
+static GstData * 		gst_ossgst_get 			(GstPad *pad);
 
 /* OssGst signals and args */
 enum {
@@ -241,7 +241,7 @@ gst_ossgst_format_to_caps (gint format, gint stereo, gint rate)
   return caps;
 }
 
-static GstBuffer* 
+static GstData * 
 gst_ossgst_get (GstPad *pad) 
 {
   GstOssGst *ossgst;
@@ -261,9 +261,7 @@ gst_ossgst_get (GstPad *pad)
 
     switch (cmd.id) { 
       case CMD_DATA:
-        buf = gst_buffer_new ();
-        GST_BUFFER_SIZE (buf) = cmd.cmd.length;
-        GST_BUFFER_DATA (buf) = g_malloc (GST_BUFFER_SIZE (buf));
+        buf = gst_pad_new_buffer (pad, cmd.cmd.length);
 
         GST_BUFFER_SIZE (buf) = read (ossgst->fdout[0], GST_BUFFER_DATA (buf), GST_BUFFER_SIZE (buf));
 	have_data = TRUE;
