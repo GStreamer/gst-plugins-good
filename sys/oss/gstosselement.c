@@ -151,6 +151,9 @@ gst_osselement_class_init (GstOssElementClass * klass)
 
   parent_class = g_type_class_ref (GST_TYPE_ELEMENT);
 
+  gobject_class->set_property = gst_osselement_set_property;
+  gobject_class->get_property = gst_osselement_get_property;
+
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_DEVICE,
       g_param_spec_string ("device", "Device", "OSS device (/dev/dspN usually)",
           "default", G_PARAM_READWRITE));
@@ -162,8 +165,6 @@ gst_osselement_class_init (GstOssElementClass * klass)
       g_param_spec_string ("device_name", "Device name", "Name of the device",
           NULL, G_PARAM_READABLE));
 
-  gobject_class->set_property = gst_osselement_set_property;
-  gobject_class->get_property = gst_osselement_get_property;
   gobject_class->finalize = gst_osselement_finalize;
 
   gstelement_class->change_state = gst_osselement_change_state;
@@ -524,18 +525,19 @@ gst_osselement_parse_caps (GstOssElement * oss, const GstCaps * caps)
 {
   gint bps, format;
   GstStructure *structure;
+  gboolean res;
 
   structure = gst_caps_get_structure (caps, 0);
 
-  gst_structure_get_int (structure, "width", &oss->width);
-  gst_structure_get_int (structure, "depth", &oss->depth);
+  res = gst_structure_get_int (structure, "width", &oss->width);
+  res &= gst_structure_get_int (structure, "depth", &oss->depth);
 
-  if (oss->width != oss->depth)
+  if (!res || oss->width != oss->depth)
     return FALSE;
 
-  gst_structure_get_int (structure, "law", &oss->law);
-  gst_structure_get_int (structure, "endianness", &oss->endianness);
-  gst_structure_get_boolean (structure, "signed", &oss->sign);
+  res = gst_structure_get_int (structure, "law", &oss->law);
+  res &= gst_structure_get_int (structure, "endianness", &oss->endianness);
+  res &= gst_structure_get_boolean (structure, "signed", &oss->sign);
 
   if (!gst_ossformat_get (oss->law, oss->endianness, oss->sign,
           oss->width, oss->depth, &format, &bps)) {
@@ -691,14 +693,17 @@ gst_osselement_open_audio (GstOssElement * oss)
 
   /* Ok, so how do we open the device? We assume that we have (max.) one
    * pad, and if this is a sinkpad, we're osssink (w). else, we're osssrc (r) */
-  padlist = gst_element_get_pad_list (GST_ELEMENT (oss));
+  GST_LOCK (oss);
+  padlist = GST_ELEMENT (oss)->pads;
   if (padlist != NULL) {
     GstPad *firstpad = padlist->data;
 
     if (GST_PAD_IS_SINK (firstpad)) {
       mode = GST_OSSELEMENT_WRITE;
     }
+    GST_UNLOCK (oss);
   } else {
+    GST_UNLOCK (oss);
     goto do_mixer;
   }
 
@@ -832,7 +837,7 @@ gst_osselement_close_audio (GstOssElement * oss)
 {
   gst_ossmixer_free_list (oss);
   if (oss->probed_caps) {
-    gst_caps_free (oss->probed_caps);
+    gst_caps_unref (oss->probed_caps);
     oss->probed_caps = NULL;
   }
 
@@ -912,7 +917,7 @@ gst_osselement_set_property (GObject * object,
     case ARG_DEVICE:
       /* disallow changing the device while it is opened
          get_property("device") should return the right one */
-      if (gst_element_get_state (GST_ELEMENT (oss)) == GST_STATE_NULL) {
+      if (oss->fd == -1) {
         g_free (oss->device);
         oss->device = g_strdup (g_value_get_string (value));
 
@@ -938,7 +943,7 @@ gst_osselement_set_property (GObject * object,
     case ARG_MIXERDEV:
       /* disallow changing the device while it is opened
          get_property("mixerdev") should return the right one */
-      if (gst_element_get_state (GST_ELEMENT (oss)) == GST_STATE_NULL) {
+      if (oss->fd == -1) {
         g_free (oss->mixer_dev);
         oss->mixer_dev = g_strdup (g_value_get_string (value));
       }

@@ -71,17 +71,16 @@ static gboolean gst_osssink_query (GstElement * element, GstQueryType type,
 static gboolean gst_osssink_sink_query (GstPad * pad, GstQueryType type,
     GstFormat * format, gint64 * value);
 
-static GstCaps *gst_osssink_sink_fixate (GstPad * pad, const GstCaps * caps);
 static GstCaps *gst_osssink_getcaps (GstPad * pad);
-static GstPadLinkReturn gst_osssink_sinkconnect (GstPad * pad,
-    const GstCaps * caps);
+static gboolean gst_osssink_setcaps (GstPad * pad, GstCaps * caps);
 
 static void gst_osssink_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
 static void gst_osssink_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 
-static void gst_osssink_chain (GstPad * pad, GstData * _data);
+static GstFlowReturn gst_osssink_chain (GstPad * pad, GstBuffer * buffer);
+static gboolean gst_osssink_handle_event (GstPad * pad, GstEvent * event);
 
 /* OssSink signals and args */
 enum
@@ -109,7 +108,7 @@ static GstStaticPadTemplate osssink_sink_factory =
         "endianness = (int) { LITTLE_ENDIAN, BIG_ENDIAN }, "
         "signed = (boolean) { TRUE, FALSE }, "
         "width = (int) 16, "
-        "depth = (int) { 8, 16 }, "
+        "depth = (int) 16, "
         "rate = (int) [ 1, MAX ], " "channels = (int) [ 1, 2 ]; "
         "audio/x-raw-int, "
         "signed = (boolean) { TRUE, FALSE }, "
@@ -180,6 +179,9 @@ gst_osssink_class_init (GstOssSinkClass * klass)
 
   parent_class = g_type_class_ref (GST_TYPE_OSSELEMENT);
 
+  gobject_class->set_property = gst_osssink_set_property;
+  gobject_class->get_property = gst_osssink_get_property;
+
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_MUTE,
       g_param_spec_boolean ("mute", "Mute", "Mute the audio",
           FALSE, G_PARAM_READWRITE));
@@ -205,8 +207,6 @@ gst_osssink_class_init (GstOssSinkClass * klass)
       G_STRUCT_OFFSET (GstOssSinkClass, handoff), NULL, NULL,
       g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 
-  gobject_class->set_property = gst_osssink_set_property;
-  gobject_class->get_property = gst_osssink_get_property;
   gobject_class->dispose = gst_osssink_dispose;
 
   gstelement_class->change_state = GST_DEBUG_FUNCPTR (gst_osssink_change_state);
@@ -223,15 +223,16 @@ gst_osssink_init (GstOssSink * osssink)
       gst_pad_new_from_template (gst_static_pad_template_get
       (&osssink_sink_factory), "sink");
   gst_element_add_pad (GST_ELEMENT (osssink), osssink->sinkpad);
-  gst_pad_set_link_function (osssink->sinkpad, gst_osssink_sinkconnect);
   gst_pad_set_getcaps_function (osssink->sinkpad, gst_osssink_getcaps);
-  gst_pad_set_fixate_function (osssink->sinkpad, gst_osssink_sink_fixate);
+  gst_pad_set_setcaps_function (osssink->sinkpad, gst_osssink_setcaps);
+  //gst_pad_set_fixate_function (osssink->sinkpad, gst_osssink_sink_fixate);
   gst_pad_set_convert_function (osssink->sinkpad, gst_osssink_convert);
   gst_pad_set_query_function (osssink->sinkpad, gst_osssink_sink_query);
   gst_pad_set_query_type_function (osssink->sinkpad,
       gst_osssink_get_query_types);
   gst_pad_set_formats_function (osssink->sinkpad, gst_osssink_get_formats);
 
+  gst_pad_set_event_function (osssink->sinkpad, gst_osssink_handle_event);
   gst_pad_set_chain_function (osssink->sinkpad, gst_osssink_chain);
 
   GST_DEBUG ("initializing osssink");
@@ -244,44 +245,33 @@ gst_osssink_init (GstOssSink * osssink)
   gst_object_set_parent (GST_OBJECT (osssink->provided_clock),
       GST_OBJECT (osssink));
   osssink->handled = 0;
-
-  GST_FLAG_SET (osssink, GST_ELEMENT_THREAD_SUGGESTED);
-  GST_FLAG_SET (osssink, GST_ELEMENT_EVENT_AWARE);
 }
 
-static GstCaps *
-gst_osssink_sink_fixate (GstPad * pad, const GstCaps * caps)
+static gboolean
+gst_osssink_setcaps (GstPad * pad, GstCaps * caps)
 {
-  GstCaps *newcaps;
-  GstStructure *structure;
+  GstOssSink *osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
 
-  newcaps =
-      gst_caps_new_full (gst_structure_copy (gst_caps_get_structure (caps, 0)),
-      NULL);
-  structure = gst_caps_get_structure (newcaps, 0);
-
-  if (gst_caps_structure_fixate_field_nearest_int (structure, "rate", 44100)) {
-    return newcaps;
+  if (!gst_osselement_parse_caps (GST_OSSELEMENT (osssink), caps)) {
+    GST_ELEMENT_ERROR (osssink, CORE, NEGOTIATION, (NULL),
+        ("received unkown format"));
+    gst_element_abort_preroll (GST_ELEMENT (osssink));
+    return FALSE;
   }
-  if (gst_caps_structure_fixate_field_nearest_int (structure, "depth", 16)) {
-    return newcaps;
-  }
-  if (gst_caps_structure_fixate_field_nearest_int (structure, "width", 16)) {
-    return newcaps;
-  }
-  if (gst_caps_structure_fixate_field_nearest_int (structure, "channels", 2)) {
-    return newcaps;
+  if (!gst_osselement_sync_parms (GST_OSSELEMENT (osssink))) {
+    GST_ELEMENT_ERROR (osssink, CORE, NEGOTIATION, (NULL),
+        ("received unkown format"));
+    gst_element_abort_preroll (GST_ELEMENT (osssink));
+    return FALSE;
   }
 
-  gst_caps_free (newcaps);
-
-  return NULL;
+  return TRUE;
 }
 
 static GstCaps *
 gst_osssink_getcaps (GstPad * pad)
 {
-  GstOssSink *osssink = GST_OSSSINK (gst_pad_get_parent (pad));
+  GstOssSink *osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
   GstCaps *caps;
 
   gst_osselement_probe_caps (GST_OSSELEMENT (osssink));
@@ -293,21 +283,6 @@ gst_osssink_getcaps (GstPad * pad)
   }
 
   return caps;
-}
-
-static GstPadLinkReturn
-gst_osssink_sinkconnect (GstPad * pad, const GstCaps * caps)
-{
-  GstOssSink *osssink = GST_OSSSINK (gst_pad_get_parent (pad));
-
-  if (!gst_osselement_parse_caps (GST_OSSELEMENT (osssink), caps))
-    return GST_PAD_LINK_REFUSED;
-
-  if (!gst_osselement_sync_parms (GST_OSSELEMENT (osssink))) {
-    return GST_PAD_LINK_REFUSED;
-  }
-
-  return GST_PAD_LINK_OK;
 }
 
 static inline gint
@@ -389,48 +364,71 @@ gst_osssink_set_clock (GstElement * element, GstClock * clock)
   osssink->clock = clock;
 }
 
-static void
-gst_osssink_chain (GstPad * pad, GstData * _data)
+static gboolean
+gst_osssink_handle_event (GstPad * pad, GstEvent * event)
 {
-  GstBuffer *buf = GST_BUFFER (_data);
+  GstOssSink *osssink;
+  gboolean result = TRUE;
+
+  osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
+
+  GST_STREAM_LOCK (pad);
+  switch (GST_EVENT_TYPE (event)) {
+    case GST_EVENT_EOS:
+      ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_SYNC, 0);
+      gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
+          FALSE);
+      gst_element_finish_preroll (GST_ELEMENT (osssink),
+          GST_STREAM_GET_LOCK (pad));
+      gst_pipeline_post_message (GST_ELEMENT_MANAGER (osssink),
+          gst_message_new_eos (GST_OBJECT (osssink)));
+      break;
+    default:
+      break;
+  }
+  GST_STREAM_UNLOCK (pad);
+
+  return result;
+}
+
+static GstFlowReturn
+gst_osssink_chain (GstPad * pad, GstBuffer * buf)
+{
   GstOssSink *osssink;
   GstClockTimeDiff buftime, soundtime, elementtime;
   guchar *data;
   guint to_write;
   gint delay;
+  GstFlowReturn result = GST_FLOW_OK;
 
   /* this has to be an audio buffer */
-  osssink = GST_OSSSINK (gst_pad_get_parent (pad));
-
-  if (GST_IS_EVENT (buf)) {
-    GstEvent *event = GST_EVENT (buf);
-
-    switch (GST_EVENT_TYPE (event)) {
-      case GST_EVENT_EOS:
-        ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_SYNC, 0);
-        gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
-            FALSE);
-        gst_pad_event_default (pad, event);
-        return;
-      default:
-        gst_pad_event_default (pad, event);
-        return;
-    }
-    g_assert_not_reached ();
-  }
+  osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
 
   if (!GST_OSSELEMENT (osssink)->bps) {
     gst_buffer_unref (buf);
     GST_ELEMENT_ERROR (osssink, CORE, NEGOTIATION, (NULL),
         ("format wasn't negotiated before chain function"));
-    return;
+    return GST_FLOW_NOT_NEGOTIATED;
+  }
+
+  GST_STREAM_LOCK (pad);
+  result =
+      gst_element_finish_preroll (GST_ELEMENT (osssink),
+      GST_STREAM_GET_LOCK (pad));
+  if (result != GST_FLOW_OK) {
+    goto done;
   }
 
   data = GST_BUFFER_DATA (buf);
   to_write = GST_BUFFER_SIZE (buf);
   /* sync audio with buffers timestamp. elementtime is the *current* time.
    * soundtime is the time if the soundcard has processed all queued data. */
-  elementtime = gst_element_get_time (GST_ELEMENT (osssink));
+  if (GST_ELEMENT (osssink)->clock) {
+    elementtime = gst_clock_get_time (GST_ELEMENT (osssink)->clock) -
+        GST_ELEMENT (osssink)->base_time;
+  } else {
+    elementtime = 0;
+  }
   delay = gst_osssink_get_delay (osssink);
   if (delay < 0)
     delay = 0;
@@ -504,7 +502,11 @@ gst_osssink_chain (GstPad * pad, GstData * _data)
   gst_audio_clock_update_time ((GstAudioClock *) osssink->provided_clock,
       gst_osssink_get_time (osssink->provided_clock, osssink));
 
+done:
+  GST_STREAM_UNLOCK (pad);
   gst_buffer_unref (buf);
+
+  return result;
 }
 
 static const GstFormat *
@@ -526,7 +528,7 @@ gst_osssink_convert (GstPad * pad, GstFormat src_format, gint64 src_value,
 {
   GstOssSink *osssink;
 
-  osssink = GST_OSSSINK (gst_pad_get_parent (pad));
+  osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
 
   return gst_osselement_convert (GST_OSSELEMENT (osssink),
       src_format, src_value, dest_format, dest_value);
@@ -551,7 +553,7 @@ gst_osssink_sink_query (GstPad * pad, GstQueryType type, GstFormat * format,
   gboolean res = TRUE;
   GstOssSink *osssink;
 
-  osssink = GST_OSSSINK (gst_pad_get_parent (pad));
+  osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
 
   switch (type) {
     case GST_QUERY_LATENCY:
@@ -655,11 +657,15 @@ static GstElementStateReturn
 gst_osssink_change_state (GstElement * element)
 {
   GstOssSink *osssink;
+  GstElementStateReturn result = GST_STATE_SUCCESS;
 
   osssink = GST_OSSSINK (element);
 
   switch (GST_STATE_TRANSITION (element)) {
+    case GST_STATE_NULL_TO_READY:
+      break;
     case GST_STATE_READY_TO_PAUSED:
+      result = GST_STATE_ASYNC;
       break;
     case GST_STATE_PAUSED_TO_PLAYING:
       gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
@@ -677,12 +683,14 @@ gst_osssink_change_state (GstElement * element)
       gst_osselement_reset (GST_OSSELEMENT (osssink));
       osssink->handled = 0;
       break;
+    case GST_STATE_READY_TO_NULL:
+      break;
     default:
       break;
   }
 
   if (GST_ELEMENT_CLASS (parent_class)->change_state)
-    return GST_ELEMENT_CLASS (parent_class)->change_state (element);
+    GST_ELEMENT_CLASS (parent_class)->change_state (element);
 
-  return GST_STATE_SUCCESS;
+  return result;
 }

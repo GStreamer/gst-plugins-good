@@ -88,8 +88,7 @@ fill_labels (void)
   {
     gchar *given, *wanted;
   }
-  cases[] =
-  {
+  cases[] = {
     /* Note: this list is simply ripped from soundcard.h. For
      * some people, some values might be missing (3D surround,
      * etc.) - feel free to add them. That's the reason why
@@ -434,7 +433,7 @@ void
 gst_ossmixer_build_list (GstOssElement * oss)
 {
   gint i, devmask, master = -1;
-  const GList *pads = gst_element_get_pad_list (GST_ELEMENT (oss));
+  const GList *pads;
   GstPadDirection dir = GST_PAD_UNKNOWN;
 
 #ifdef SOUND_MIXER_INFO
@@ -451,9 +450,12 @@ gst_ossmixer_build_list (GstOssElement * oss)
     return;
   }
 
+  GST_LOCK (oss);
+  pads = GST_ELEMENT (oss)->pads;
   /* get direction */
   if (pads && g_list_length ((GList *) pads) == 1)
     dir = GST_PAD_DIRECTION (GST_PAD (pads->data));
+  GST_UNLOCK (oss);
 
   /* get masks */
   if (ioctl (oss->mixer_fd, SOUND_MIXER_READ_RECMASK, &oss->recmask) < 0 ||
