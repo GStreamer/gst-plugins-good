@@ -170,7 +170,7 @@ gst_avi_demux_base_init (gpointer g_class)
     gst_caps2_append_cap (audcaps, structure);
   }
   audiosrctempl = gst_pad_template_new ("audio_%02d", GST_PAD_SRC,
-      GST_PAD_SOMETIMES, audcaps, NULL);
+      GST_PAD_SOMETIMES, audcaps);
 
   vidcaps = gst_caps2_new_empty ();
   for (i = 0; vid_list[i] != 0; i++) {
@@ -179,7 +179,7 @@ gst_avi_demux_base_init (gpointer g_class)
   }
   gst_caps2_append_cap (vidcaps, gst_avi_demux_iavs_caps ());
   videosrctempl = gst_pad_template_new ("video_%02d", GST_PAD_SRC,
-      GST_PAD_SOMETIMES, vidcaps, NULL);
+      GST_PAD_SOMETIMES, vidcaps);
   gst_element_class_add_pad_template (element_class, audiosrctempl);
   gst_element_class_add_pad_template (element_class, videosrctempl);
   gst_element_class_add_pad_template (element_class,

@@ -89,9 +89,9 @@ gst_videoflip_src_template_factory(void)
 {
   /* well, actually RGB too, but since there's no RGB format anyway */
   GstCaps2 *caps = gst_caps2_from_string ("video/x-raw-yuv, "
-	      "width = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
-	      "height = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
-	      "framerate = (double) [ 0, " G_STRINGIFY(G_MAXDOUBLE) "]");
+	      "width = (int) [ 0, MAX ], "
+	      "height = (int) [ 0, MAX ], "
+	      "framerate = (double) [ 0, MAX ]");
 
   caps = gst_caps2_intersect(caps, gst_videoflip_get_capslist ());
 
@@ -102,9 +102,9 @@ static GstPadTemplate *
 gst_videoflip_sink_template_factory(void)
 {
   GstCaps2 *caps = gst_caps2_from_string ("video/x-raw-yuv, "
-	      "width = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
-	      "height = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
-	      "framerate = (double) [ 0, " G_STRINGIFY(G_MAXDOUBLE) "]");
+	      "width = (int) [ 0, MAX ], "
+	      "height = (int) [ 0, MAX ], "
+	      "framerate = (double) [ 0, MAX ]");
 
   caps = gst_caps2_intersect(caps, gst_videoflip_get_capslist ());
 
@@ -140,8 +140,10 @@ gst_videoflip_base_init (gpointer g_class)
 
   gst_element_class_set_details (element_class, &videoflip_details);
 
-  gst_element_class_add_pad_template (element_class, GST_PAD_TEMPLATE_GET (gst_videoflip_sink_template_factory));
-  gst_element_class_add_pad_template (element_class, GST_PAD_TEMPLATE_GET (gst_videoflip_src_template_factory));
+  gst_element_class_add_pad_template (element_class,
+      gst_videoflip_sink_template_factory ());
+  gst_element_class_add_pad_template (element_class,
+      gst_videoflip_src_template_factory ());
 }
 static void
 gst_videoflip_class_init (GstVideoflipClass *klass)
@@ -214,9 +216,9 @@ gst_videoflip_sink_getcaps (GstPad *pad)
   gst_caps2_free (peercaps);
 
   sizecaps = gst_caps2_from_string ("video/x-raw-yuv, "
-	      "width = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
-	      "height = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
-	      "framerate = (double) [ 0, " G_STRINGIFY(G_MAXDOUBLE) "]");
+	      "width = (int) [ 0, MAX ], "
+	      "height = (int) [ 0, MAX ], "
+	      "framerate = (double) [ 0, MAX ]");
 
   caps = gst_caps2_intersect(capslist, sizecaps);
   gst_caps2_free (sizecaps);
@@ -276,7 +278,7 @@ gst_videoflip_init (GstVideoflip *videoflip)
 {
   GST_DEBUG ("gst_videoflip_init");
   videoflip->sinkpad = gst_pad_new_from_template (
-		  GST_PAD_TEMPLATE_GET (gst_videoflip_sink_template_factory),
+		  gst_videoflip_sink_template_factory(),
 		  "sink");
   gst_element_add_pad(GST_ELEMENT(videoflip),videoflip->sinkpad);
   gst_pad_set_chain_function(videoflip->sinkpad,gst_videoflip_chain);
@@ -284,7 +286,7 @@ gst_videoflip_init (GstVideoflip *videoflip)
   gst_pad_set_getcaps_function(videoflip->sinkpad,gst_videoflip_sink_getcaps);
 
   videoflip->srcpad = gst_pad_new_from_template (
-		  GST_PAD_TEMPLATE_GET (gst_videoflip_src_template_factory),
+		  gst_videoflip_src_template_factory(),
 		  "src");
   gst_element_add_pad(GST_ELEMENT(videoflip),videoflip->srcpad);
   gst_pad_set_link_function(videoflip->srcpad,gst_videoflip_src_link);

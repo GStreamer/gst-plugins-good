@@ -38,14 +38,14 @@ plugin_init (GstPlugin *plugin)
   linear_caps = linear_factory ();
 
   mulawenc_src_template = gst_pad_template_new ("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-		   		               mulaw_caps, NULL);
+		   		               mulaw_caps);
   mulawenc_sink_template = gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-		   			        linear_caps, NULL);
+		   			        linear_caps);
 
   mulawdec_src_template = gst_pad_template_new ("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-		  				linear_caps, NULL);
+		  				linear_caps);
   mulawdec_sink_template = gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-		   				mulaw_caps, NULL);
+		   				mulaw_caps);
 
   if (!gst_element_register (plugin, "mulawenc",
 			     GST_RANK_NONE, GST_TYPE_MULAWENC) ||

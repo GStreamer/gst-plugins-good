@@ -133,7 +133,7 @@ static GstStructure *gst_videofilter_format_get_structure(GstVideofilterFormat *
   gst_structure_set(structure,
       "height", GST_TYPE_INT_RANGE, 1, G_MAXINT,
       "width", GST_TYPE_INT_RANGE, 1, G_MAXINT,
-      "framerate", GST_TYPE_DOUBLE_RANGE, 0, G_MAXDOUBLE,
+      "framerate", GST_TYPE_DOUBLE_RANGE, 0.0, G_MAXDOUBLE,
       NULL);
 
   return structure;

@@ -52,7 +52,7 @@ GST_STATIC_PAD_TEMPLATE (
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
   GST_STATIC_CAPS (
-    GST_AUDIO_INT_PAD_TEMPLATE_CAPS ", "
+    GST_AUDIO_INT_PAD_TEMPLATE_CAPS "; "
     "audio/x-alaw, "
       "rate = (int) [ 8000, 48000 ], "
       "channels = (int) [ 1, 2 ]"

@@ -2108,14 +2108,14 @@ gst_matroska_demux_video_caps (GstMatroskaTrackVideoContext *videocontext,
 	gst_structure_new ("video/x-xvid", NULL),
 	gst_structure_new ("video/mpeg",
 	  "mpegversion",  G_TYPE_INT, 4,
-	  "systemstream", G_TYPE_BOOLEAN, FALSE),
+	  "systemstream", G_TYPE_BOOLEAN, FALSE, NULL),
 	NULL);
   } else if (!strcmp (codec_id, GST_MATROSKA_CODEC_ID_VIDEO_MSMPEG4V3)) {
     caps = gst_caps2_new_full (
 	gst_structure_new ("video/x-divx",
 	  "divxversion", G_TYPE_INT, 3, NULL),
 	gst_structure_new ("video/x-msmpeg",
-	  "msmpegversion", G_TYPE_INT, 43),
+	  "msmpegversion", G_TYPE_INT, 43, NULL),
 	NULL);
   } else if (!strcmp (codec_id, GST_MATROSKA_CODEC_ID_VIDEO_MPEG1) ||
 	     !strcmp (codec_id, GST_MATROSKA_CODEC_ID_VIDEO_MPEG2)) {
@@ -2182,7 +2182,7 @@ gst_matroska_demux_video_caps (GstMatroskaTrackVideoContext *videocontext,
 	    "height", GST_TYPE_INT_RANGE, 16, 4096,
 	    "pixel_width", GST_TYPE_INT_RANGE, 0, 255,
 	    "pixel_height", GST_TYPE_INT_RANGE, 0, 255,
-            "framerate", GST_TYPE_DOUBLE_RANGE, 0, G_MAXDOUBLE,
+            "framerate", GST_TYPE_DOUBLE_RANGE, 0.0, G_MAXDOUBLE,
 	    NULL);
       }
     }
@@ -2222,7 +2222,7 @@ gst_matroskademux_acm_caps (guint16             codec_id,
       } else {
 	caps = gst_caps2_from_string ("audio/x-raw-int, "
 	    "endianness = (int) LITTLE_ENDIAN, "
-	    "signed = (int) { TRUE, FALSE }, "
+	    "signed = (boolean) { TRUE, FALSE }, "
 	    "depth = (int) { 8, 16 }, "
 	    "width = (int) { 8, 16 }");
       }
@@ -2315,7 +2315,7 @@ gst_matroska_demux_audio_caps (GstMatroskaTrackAudioContext *audiocontext,
 	  "signed", G_TYPE_BOOLEAN, audiocontext->bitdepth == 8, NULL);
     } else {
       caps = gst_caps2_from_string ("audio/x-raw-int, "
-	  "signed = (int) { TRUE, FALSE }, "
+	  "signed = (boolean) { TRUE, FALSE }, "
 	  "depth = (int) { 8, 16 }, "
 	  "width = (int) { 8, 16 }");
     }
@@ -2475,8 +2475,7 @@ gboolean
 gst_matroska_demux_plugin_init (GstPlugin *plugin)
 {
   gint i;
-  GstCaps2 *videosrccaps = NULL, *audiosrccaps = NULL,
-	  *subtitlesrccaps = NULL, *temp;
+  GstCaps2 *videosrccaps, *audiosrccaps, *subtitlesrccaps, *temp;
   const gchar *video_id[] = {
     GST_MATROSKA_CODEC_ID_VIDEO_UNCOMPRESSED,
     GST_MATROSKA_CODEC_ID_VIDEO_MPEG4_SP,
@@ -2562,8 +2561,9 @@ gst_matroska_demux_plugin_init (GstPlugin *plugin)
   videosrctempl = gst_pad_template_new ("video_%02d",
 					GST_PAD_SRC,
 					GST_PAD_SOMETIMES,
-					videosrccaps, NULL);
+					videosrccaps);
 
+  audiosrccaps = gst_caps2_new_empty ();
   /* audio src template */
   for (i = 0; audio_id[i] != NULL; i++) {
     temp = gst_matroska_demux_audio_caps (NULL, audio_id[i], NULL, 0);
@@ -2576,8 +2576,9 @@ gst_matroska_demux_plugin_init (GstPlugin *plugin)
   audiosrctempl = gst_pad_template_new ("audio_%02d",
 					GST_PAD_SRC,
 					GST_PAD_SOMETIMES,
-					audiosrccaps, NULL);
+					audiosrccaps);
 
+  subtitlesrccaps = gst_caps2_new_empty ();
   /* subtitle src template */
   for (i = 0; subtitle_id[i] != NULL; i++) {
     temp = gst_matroska_demux_subtitle_caps (NULL, subtitle_id[i], NULL, 0);
@@ -2586,7 +2587,7 @@ gst_matroska_demux_plugin_init (GstPlugin *plugin)
   subtitlesrctempl = gst_pad_template_new ("subtitle_%02d",
 					   GST_PAD_SRC,
 					   GST_PAD_SOMETIMES,
-					   subtitlesrccaps, NULL);
+					   subtitlesrccaps);
 
   /* create an elementfactory for the matroska_demux element */
   if (!gst_element_register (plugin, "matroskademux",

@@ -37,11 +37,11 @@ plugin_init (GstPlugin *plugin)
   alaw_caps = alaw_factory ();
   linear_caps = linear_factory ();
 
-  alawenc_src_template = gst_pad_template_new ("src",GST_PAD_SRC,GST_PAD_ALWAYS,alaw_caps, NULL);
-  alawenc_sink_template = gst_pad_template_new ("sink",GST_PAD_SINK,GST_PAD_ALWAYS,linear_caps, NULL);
+  alawenc_src_template = gst_pad_template_new ("src",GST_PAD_SRC,GST_PAD_ALWAYS,alaw_caps);
+  alawenc_sink_template = gst_pad_template_new ("sink",GST_PAD_SINK,GST_PAD_ALWAYS,linear_caps);
 
-  alawdec_src_template = gst_pad_template_new ("src",GST_PAD_SRC,GST_PAD_ALWAYS,linear_caps, NULL);
-  alawdec_sink_template = gst_pad_template_new ("sink",GST_PAD_SINK,GST_PAD_ALWAYS,alaw_caps, NULL);
+  alawdec_src_template = gst_pad_template_new ("src",GST_PAD_SRC,GST_PAD_ALWAYS,linear_caps);
+  alawdec_sink_template = gst_pad_template_new ("sink",GST_PAD_SINK,GST_PAD_ALWAYS,alaw_caps);
 
   if (!gst_element_register (plugin, "alawenc",
 			     GST_RANK_NONE, GST_TYPE_ALAWENC) ||
