@@ -55,7 +55,8 @@ static void	gst_videoflip_set_property		(GObject *object, guint prop_id, const G
 static void	gst_videoflip_get_property		(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 
 static void	gst_videoflip_chain		(GstPad *pad, GstData *_data);
-static GstCaps * gst_videoflip_get_capslist(void);
+static GstCaps2 * gst_videoflip_get_capslist(void);
+
 
 static GstElementClass *parent_class = NULL;
 
@@ -86,38 +87,28 @@ gst_videoflip_method_get_type(void)
 static GstPadTemplate *
 gst_videoflip_src_template_factory(void)
 {
-  static GstPadTemplate *templ = NULL;
+  /* well, actually RGB too, but since there's no RGB format anyway */
+  GstCaps2 *caps = gst_caps2_from_string ("video/x-raw-yuv, "
+	      "width = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
+	      "height = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
+	      "framerate = (double) [ 0, " G_STRINGIFY(G_MAXDOUBLE) "]");
 
-  if(!templ){
-    /* well, actually RGB too, but since there's no RGB format anyway */
-    GstCaps *caps = GST_CAPS_NEW("src","video/x-raw-yuv",
-		"width", GST_PROPS_INT_RANGE (0, G_MAXINT),
-		"height", GST_PROPS_INT_RANGE (0, G_MAXINT),
-                "framerate", GST_PROPS_FLOAT_RANGE (0, G_MAXFLOAT));
+  caps = gst_caps2_intersect(caps, gst_videoflip_get_capslist ());
 
-    caps = gst_caps_intersect(caps, gst_videoflip_get_capslist ());
-
-    templ = GST_PAD_TEMPLATE_NEW("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
-  }
-  return templ;
+  return gst_pad_template_new ("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
 }
 
 static GstPadTemplate *
 gst_videoflip_sink_template_factory(void)
 {
-  static GstPadTemplate *templ = NULL;
+  GstCaps2 *caps = gst_caps2_from_string ("video/x-raw-yuv, "
+	      "width = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
+	      "height = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
+	      "framerate = (double) [ 0, " G_STRINGIFY(G_MAXDOUBLE) "]");
 
-  if(!templ){
-    GstCaps *caps = GST_CAPS_NEW("sink","video/x-raw-yuv",
-		"width", GST_PROPS_INT_RANGE (0, G_MAXINT),
-		"height", GST_PROPS_INT_RANGE (0, G_MAXINT),
-                "framerate", GST_PROPS_FLOAT_RANGE (0, G_MAXFLOAT));
+  caps = gst_caps2_intersect(caps, gst_videoflip_get_capslist ());
 
-    caps = gst_caps_intersect(caps, gst_videoflip_get_capslist ());
-
-    templ = GST_PAD_TEMPLATE_NEW("src", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
-  }
-  return templ;
+  return gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
 }
 
 GType
@@ -173,37 +164,33 @@ gst_videoflip_class_init (GstVideoflipClass *klass)
 
 }
 
-static GstCaps *
+static GstCaps2 *
 gst_videoflip_get_capslist(void)
 {
-  static GstCaps *capslist = NULL;
-  GstCaps *caps;
+  GstCaps2 *caps;
+  GstStructure *structure;
   int i;
 
-  if (capslist){
-    gst_caps_ref(capslist);
-    return capslist;
-  }
-
+  caps = gst_caps2_new_empty ();
   for(i=0;i<videoflip_n_formats;i++){
-    caps = videoflip_get_caps(videoflip_formats + i);
-    capslist = gst_caps_append(capslist, caps);
+    structure = videoflip_get_cap (videoflip_formats + i);
+    gst_caps2_append_cap (caps, structure);
   }
 
-  gst_caps_ref(capslist);
-  return capslist;
+  return caps;
 }
 
-static GstCaps *
-gst_videoflip_sink_getcaps (GstPad *pad, GstCaps *caps)
+static GstCaps2 *
+gst_videoflip_sink_getcaps (GstPad *pad)
 {
   GstVideoflip *videoflip;
-  GstCaps *capslist = NULL;
-  GstCaps *peercaps;
-  GstCaps *sizecaps;
+  GstCaps2 *capslist = NULL;
+  GstCaps2 *peercaps;
+  GstCaps2 *sizecaps;
+  GstCaps2 *caps;
   int i;
 
-  GST_DEBUG ("gst_videoflip_src_link");
+  GST_DEBUG ("gst_videoflip_sink_getcaps");
   videoflip = GST_VIDEOFLIP (gst_pad_get_parent (pad));
   
   /* get list of peer's caps */
@@ -218,111 +205,70 @@ gst_videoflip_sink_getcaps (GstPad *pad, GstCaps *caps)
   /* Look through our list of caps and find those that match with
    * the peer's formats.  Create a list of them. */
   for(i=0;i<videoflip_n_formats;i++){
-    GstCaps *fromcaps = videoflip_get_caps(videoflip_formats + i);
-    if(gst_caps_is_always_compatible(fromcaps, peercaps)){
-      capslist = gst_caps_append(capslist, fromcaps);
+    GstCaps2 *fromcaps = gst_caps2_new_full(videoflip_get_cap(
+	  videoflip_formats + i), NULL);
+    if(gst_caps2_is_always_compatible(fromcaps, peercaps)){
+      gst_caps2_append(capslist, fromcaps);
     }
-    gst_caps_unref (fromcaps);
   }
-  gst_caps_unref (peercaps);
+  gst_caps2_free (peercaps);
 
-  sizecaps = GST_CAPS_NEW("videoflip_size","video/x-raw-yuv",
-		"width", GST_PROPS_INT_RANGE (0, G_MAXINT),
-		"height", GST_PROPS_INT_RANGE (0, G_MAXINT),
-                "framerate", GST_PROPS_FLOAT_RANGE (0, G_MAXFLOAT));
+  sizecaps = gst_caps2_from_string ("video/x-raw-yuv, "
+	      "width = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
+	      "height = (int) [ 0, " G_STRINGIFY(G_MAXINT) "], "
+	      "framerate = (double) [ 0, " G_STRINGIFY(G_MAXDOUBLE) "]");
 
-  caps = gst_caps_intersect(caps, gst_videoflip_get_capslist ());
-  gst_caps_unref (sizecaps);
+  caps = gst_caps2_intersect(capslist, sizecaps);
+  gst_caps2_free (sizecaps);
 
   return caps;
 }
 
 
 static GstPadLinkReturn
-gst_videoflip_src_link (GstPad *pad, GstCaps *caps)
+gst_videoflip_src_link (GstPad *pad, const GstCaps2 *caps)
 {
   GstVideoflip *videoflip;
-  GstPadLinkReturn ret;
-  GstCaps *peercaps;
+  GstStructure *structure;
+  gboolean ret;
 
   GST_DEBUG ("gst_videoflip_src_link");
   videoflip = GST_VIDEOFLIP (gst_pad_get_parent (pad));
-
-  if (!GST_CAPS_IS_FIXED (caps)) {
-    return GST_PAD_LINK_DELAYED;
-  }
-
-  gst_caps_debug(caps,"ack");
+  
+  structure = gst_caps2_get_nth_cap (caps, 0);
 
   videoflip->format = videoflip_find_by_caps (caps);
   g_return_val_if_fail(videoflip->format, GST_PAD_LINK_REFUSED);
 
-  gst_caps_get_int (caps, "width", &videoflip->to_width);
-  gst_caps_get_int (caps, "height", &videoflip->to_height);
+  ret = gst_structure_get_int (structure, "width", &videoflip->to_width);
+  ret &= gst_structure_get_int (structure, "height", &videoflip->to_height);
 
-  GST_DEBUG ("width %d height %d",videoflip->to_width,videoflip->to_height);
+  if (!ret) return GST_PAD_LINK_REFUSED;
 
-  peercaps = gst_caps_copy(caps);
-
-  gst_caps_set(peercaps, "width", GST_PROPS_INT_RANGE (0, G_MAXINT));
-  gst_caps_set(peercaps, "height", GST_PROPS_INT_RANGE (0, G_MAXINT));
-
-  ret = gst_pad_try_set_caps (videoflip->srcpad, peercaps);
-
-  gst_caps_unref(peercaps);
-
-  if(ret==GST_PAD_LINK_OK){
-    caps = gst_pad_get_caps (videoflip->srcpad);
-
-    gst_caps_get_int (caps, "width", &videoflip->from_width);
-    gst_caps_get_int (caps, "height", &videoflip->from_height);
-    gst_videoflip_setup(videoflip);
-  }
-
-  return ret;
+  return GST_PAD_LINK_OK;
 }
 
 static GstPadLinkReturn
-gst_videoflip_sink_link (GstPad *pad, GstCaps *caps)
+gst_videoflip_sink_link (GstPad *pad, const GstCaps2 *caps)
 {
   GstVideoflip *videoflip;
-  GstPadLinkReturn ret;
-  GstCaps *peercaps;
+  GstStructure *structure;
+  gboolean ret;
 
-  GST_DEBUG ("gst_videoflip_src_link");
+  GST_DEBUG ("gst_videoflip_sink_link");
   videoflip = GST_VIDEOFLIP (gst_pad_get_parent (pad));
-
-  if (!GST_CAPS_IS_FIXED (caps)) {
-    return GST_PAD_LINK_DELAYED;
-  }
+  
+  structure = gst_caps2_get_nth_cap (caps, 0);
 
   videoflip->format = videoflip_find_by_caps (caps);
-  gst_caps_debug(caps,"ack");
   g_return_val_if_fail(videoflip->format, GST_PAD_LINK_REFUSED);
 
-  gst_caps_get_int (caps, "width", &videoflip->from_width);
-  gst_caps_get_int (caps, "height", &videoflip->from_height);
+  ret = gst_structure_get_int (structure, "width", &videoflip->from_width);
+  ret &= gst_structure_get_int (structure, "height", &videoflip->from_height);
 
-  gst_videoflip_setup(videoflip);
+  if (!ret) return GST_PAD_LINK_REFUSED;
 
-  peercaps = gst_caps_copy(caps);
-
-  gst_caps_set(peercaps, "width", GST_PROPS_INT (videoflip->to_width));
-  gst_caps_set(peercaps, "height", GST_PROPS_INT (videoflip->to_height));
-
-  ret = gst_pad_try_set_caps (videoflip->srcpad, peercaps);
-
-  gst_caps_unref(peercaps);
-
-  if(ret==GST_PAD_LINK_OK){
-    caps = gst_pad_get_caps (videoflip->srcpad);
-
-    gst_caps_get_int (caps, "width", &videoflip->to_width);
-    gst_caps_get_int (caps, "height", &videoflip->to_height);
-    gst_videoflip_setup(videoflip);
-  }
-
-  return ret;
+  return GST_PAD_LINK_OK;
 }
 
 static void
