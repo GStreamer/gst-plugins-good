@@ -295,6 +295,14 @@ gst_textoverlay_event (GstPad * pad, GstEvent * event)
       GST_PAD_IS_LINKED (overlay->text_sinkpad)) {
     gst_event_ref (event);
     gst_pad_send_event (GST_PAD_PEER (overlay->text_sinkpad), event);
+    if (overlay->next_data) {
+      gst_data_unref (overlay->next_data);
+      overlay->next_data = NULL;
+    }
+    if (overlay->current_data) {
+      gst_data_unref (overlay->current_data);
+      overlay->current_data = NULL;
+    }
   }
 
   return gst_pad_send_event (GST_PAD_PEER (overlay->video_sinkpad), event);
@@ -471,11 +479,13 @@ gst_textoverlay_loop (GstElement * element)
       GstEvent *event = GST_EVENT (video_frame);
       GstEventType type = GST_EVENT_TYPE (event);
 
-      gst_pad_event_default (overlay->video_sinkpad, event);
       GST_DEBUG ("Received event of type %d", type);
-      if (type == GST_EVENT_INTERRUPT)
+      if (type == GST_EVENT_INTERRUPT) {
+        gst_event_unref (event);
         return;
-      else if (type == GST_EVENT_EOS) {
+      }
+      gst_pad_event_default (overlay->video_sinkpad, event);
+      if (type == GST_EVENT_EOS) {
         /* EOS text stream */
         GstData *data = NULL;
 
@@ -522,12 +532,13 @@ gst_textoverlay_loop (GstElement * element)
         GstEvent *event = GST_EVENT (overlay->next_data);
         GstEventType type = GST_EVENT_TYPE (event);
 
+        GST_DEBUG ("Received text data event of type %d", type);
+        overlay->next_data = NULL;
         gst_event_unref (event);
         if (type == GST_EVENT_EOS)
           break;
         else if (type == GST_EVENT_INTERRUPT)
           return;
-        overlay->next_data = NULL;
       }
     } while (!overlay->next_data);
 
