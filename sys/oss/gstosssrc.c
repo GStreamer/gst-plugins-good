@@ -116,7 +116,7 @@ static const GstQueryType *gst_osssrc_get_query_types (GstPad * pad);
 static gboolean gst_osssrc_src_query (GstPad * pad, GstQueryType type,
     GstFormat * format, gint64 * value);
 
-static gboolean gst_osssrc_loop (GstPad * pad);
+static void gst_osssrc_loop (GstPad * pad);
 
 static GstElementClass *parent_class = NULL;
 
@@ -321,7 +321,7 @@ gst_osssrc_set_clock (GstElement * element, GstClock * clock)
   osssrc->clock = clock;
 }
 
-static gboolean
+static void
 gst_osssrc_loop (GstPad * pad)
 {
   GstOssSrc *src;
@@ -336,7 +336,7 @@ gst_osssrc_loop (GstPad * pad)
   if (src->need_eos) {
     src->need_eos = FALSE;
     gst_pad_push_event (pad, gst_event_new (GST_EVENT_EOS));
-    return FALSE;
+    return;
   }
 
   buf = gst_buffer_new_and_alloc (src->buffersize);
@@ -346,14 +346,14 @@ gst_osssrc_loop (GstPad * pad)
     if (!gst_osssrc_negotiate (pad)) {
       gst_buffer_unref (buf);
       GST_ELEMENT_ERROR (src, CORE, NEGOTIATION, (NULL), (NULL));
-      return FALSE;
+      return;
     }
   }
   if (GST_OSSELEMENT (src)->bps == 0) {
     gst_buffer_unref (buf);
     GST_ELEMENT_ERROR (src, CORE, NEGOTIATION, (NULL),
         ("format wasn't negotiated before chain function"));
-    return FALSE;
+    return;
   }
 
   readbytes = read (GST_OSSELEMENT (src)->fd, GST_BUFFER_DATA (buf),
@@ -361,13 +361,13 @@ gst_osssrc_loop (GstPad * pad)
   if (readbytes < 0) {
     gst_buffer_unref (buf);
     GST_ELEMENT_ERROR (src, RESOURCE, READ, (NULL), GST_ERROR_SYSTEM);
-    return FALSE;
+    return;
   }
 
   if (readbytes == 0) {
     gst_buffer_unref (buf);
-    //gst_element_set_eos (GST_ELEMENT (src));
-    return FALSE;
+    gst_pad_push_event (pad, gst_event_new (GST_EVENT_EOS));
+    return;
   }
 
   readsamples = readbytes * GST_OSSELEMENT (src)->rate /
@@ -404,7 +404,7 @@ gst_osssrc_loop (GstPad * pad)
 
   gst_pad_push (pad, buf);
 
-  return TRUE;
+  return;
 }
 
 static void
