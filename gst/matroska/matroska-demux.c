@@ -1607,21 +1607,47 @@ gst_matroska_demux_parse_metadata (GstMatroskaDemux * demux,
               if (tag && value) {
                 for (i = 0; tag_conv[i].matroska_tagname != NULL; i++) {
                   if (!strcmp (tag_conv[i].matroska_tagname, tag)) {
-                    GValue src = { 0 }
-                    , dest = {
-                    0};
                     const gchar *type = tag_conv[i].gstreamer_tagname;
-                    GType dest_type = gst_tag_get_type (type);
 
-                    g_value_init (&src, G_TYPE_STRING);
-                    g_value_set_string (&src, value);
-                    g_value_init (&dest, dest_type);
-                    g_value_transform (&src, &dest);
-                    g_value_unset (&src);
-                    gst_tag_list_add_values (taglist, GST_TAG_MERGE_APPEND,
-                        type, &dest, NULL);
-                    g_value_unset (&dest);
-                    have_tags = TRUE;
+                    if (strcmp (type, GST_TAG_DATE) == 0) {
+                      GDate *date;
+                      guint y, d = 1, m = 1;
+                      gchar *check = value;
+
+                      y = strtoul (check, &check, 10);
+                      if (*check == '-') {
+                        check++;
+                        m = strtoul (check, &check, 10);
+                        if (*check == '-') {
+                          check++;
+                          d = strtoul (check, &check, 10);
+                        }
+                      }
+                      if (*check != '\0')
+                        break;
+                      if (y == 0)
+                        break;
+                      date = g_date_new_dmy (d, m, y);
+                      y = g_date_get_julian (date);
+                      g_date_free (date);
+                      gst_tag_list_add (taglist, GST_TAG_MERGE_APPEND, type, y,
+                          NULL);
+                      have_tags = TRUE;
+                    } else {
+                      GValue src = { 0, };
+                      GValue dest = { 0, };
+                      GType dest_type = gst_tag_get_type (type);
+
+                      g_value_init (&src, G_TYPE_STRING);
+                      g_value_set_string (&src, value);
+                      g_value_init (&dest, dest_type);
+                      g_value_transform (&src, &dest);
+                      g_value_unset (&src);
+                      gst_tag_list_add_values (taglist, GST_TAG_MERGE_APPEND,
+                          type, &dest, NULL);
+                      g_value_unset (&dest);
+                      have_tags = TRUE;
+                    }
                     break;
                   }
                 }
