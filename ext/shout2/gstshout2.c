@@ -129,15 +129,15 @@ gst_shout2send_get_type (void)
       (GInstanceInitFunc) gst_shout2send_init,
     };
 
-    shout2send_type =
-        g_type_register_static (GST_TYPE_ELEMENT, "GstShout2send",
-        &shout2send_info, 0);
-
     static const GInterfaceInfo tag_setter_info = {
       NULL,
       NULL,
       NULL
     };
+
+    shout2send_type =
+        g_type_register_static (GST_TYPE_ELEMENT, "GstShout2send",
+        &shout2send_info, 0);
 
     g_type_add_interface_static (shout2send_type, GST_TYPE_TAG_SETTER,
         &tag_setter_info);
