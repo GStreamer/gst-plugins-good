@@ -182,6 +182,8 @@ user_read_data (png_structp png_ptr, png_bytep data, png_size_t length)
   dec->offset += length;
 }
 
+#define ROUND_UP_4(x) (((x) + 3) & ~3)
+
 static void
 gst_pngdec_chain (GstPad * pad, GstData * _data)
 {
@@ -305,12 +307,12 @@ gst_pngdec_chain (GstPad * pad, GstData * _data)
   rows = (png_bytep *) g_malloc (sizeof (png_bytep) * height);
 
   out = gst_pad_alloc_buffer (pngdec->srcpad, GST_BUFFER_OFFSET_NONE,
-      height * pngdec->info->rowbytes);
+      height * ROUND_UP_4 (pngdec->info->rowbytes));
 
   inp = GST_BUFFER_DATA (out);
   for (i = 0; i < height; i++) {
     rows[i] = inp;
-    inp += pngdec->info->rowbytes;
+    inp += ROUND_UP_4 (pngdec->info->rowbytes);
   }
 
   png_read_image (pngdec->png, rows);

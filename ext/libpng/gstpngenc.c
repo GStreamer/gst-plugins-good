@@ -245,6 +245,8 @@ user_write_data (png_structp png_ptr, png_bytep data, png_uint_32 length)
     pngenc->buffer_out = buffer;
 }
 
+#define ROUND_UP_4(x) (((x) + 3) & ~3)
+
 static void
 gst_pngenc_chain (GstPad * pad, GstData * _data)
 {
@@ -307,7 +309,7 @@ gst_pngenc_chain (GstPad * pad, GstData * _data)
 
   for (row_index = 0; row_index < pngenc->height; row_index++)
     row_pointers[row_index] = GST_BUFFER_DATA (buf) +
-        (row_index * pngenc->png_info_ptr->rowbytes);
+        (row_index * ROUND_UP_4 (pngenc->png_info_ptr->rowbytes));
 
   png_write_info (pngenc->png_struct_ptr, pngenc->png_info_ptr);
   png_write_image (pngenc->png_struct_ptr, row_pointers);
