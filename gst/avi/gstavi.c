@@ -1,5 +1,7 @@
-/* Evil evil evil hack to get OSS apps to cooperate with esd
- * Copyright (C) 1998, 1999 Manish Singh <yosh@gimp.org>
+/* GStreamer
+ * Copyright (C) <1999> Erik Walthinsen <omega@temple-baptist.com>
+ *
+ * gstavi.c: plugin registering
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,28 +19,35 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef __GST_OSSGST_HELPER_H__
-#define __GST_OSSGST_HELPER_H__
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
-#define HELPER_MAGIC_IN		500
-#define HELPER_MAGIC_OUT	501
-#define HELPER_MAGIC_SNDFD	502
+#include "gstavidemux.h"
+#include "gstavimux.h"
 
-#define CMD_DATA 	1
-#define CMD_FORMAT 	2
+static gboolean
+plugin_init (GstPlugin *plugin)
+{
+  if (!gst_library_load ("riff"))
+    return FALSE;
 
-typedef struct {
-  char id;
+  return (gst_element_register (plugin, "avidemux",
+				GST_RANK_PRIMARY,
+				GST_TYPE_AVI_DEMUX) &&
+	  gst_element_register (plugin, "avimux",
+				GST_RANK_NONE,
+				GST_TYPE_AVIMUX));
+}
 
-  union {
-    unsigned int length;
-    struct {
-      int format;
-      int stereo;
-      int rate;
-    } format;
-  } cmd;
-} command;
-
-
-#endif /*  __GST_OSSGST_HELPER_H__ */
+GST_PLUGIN_DEFINE (
+  GST_VERSION_MAJOR,
+  GST_VERSION_MINOR,
+  "avi",
+  "AVI stream handling",
+  plugin_init,
+  VERSION,
+  "LGPL",
+  GST_PACKAGE,
+  GST_ORIGIN
+)

@@ -88,7 +88,6 @@ GST_PLUGIN_DEFINE (
   plugin_init,
   VERSION,
   "LGPL",
-  "Wim Taymans <wim.taymans@chello.be>, (c) 2001 FUKUCHI Kentarou, (c) 2001 Sam Mertens, (c) 2002 Ed Tannenbaum",
   GST_PACKAGE,
   GST_ORIGIN
 );
