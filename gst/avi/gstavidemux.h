@@ -26,9 +26,7 @@
 #include <gst/bytestream/bytestream.h>
 #include <gst/riff/riff.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
+G_BEGIN_DECLS
 
 #define GST_TYPE_AVI_DEMUX \
   (gst_avi_demux_get_type())
@@ -115,7 +113,8 @@ struct _GstAviDemux {
   gint64 	 seek_offset;
   guint64 	 last_seek;
 
-  GstCaps	*metadata, *streaminfo;
+  GstStructure	*metadata;
+  GstCaps2	*streaminfo;
 };
 
 struct _GstAviDemuxClass {
@@ -124,9 +123,6 @@ struct _GstAviDemuxClass {
 
 GType 		gst_avi_demux_get_type		(void);
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
-
+G_END_DECLS
 
 #endif /* __GST_AVI_DEMUX_H__ */
