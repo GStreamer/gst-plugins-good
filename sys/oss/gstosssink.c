@@ -473,6 +473,7 @@ gst_osssink_chain (GstPad *pad, GstBuffer *buf)
           gst_element_clock_wait (GST_ELEMENT (osssink), osssink->clock, buftime);
         }
 
+	/* this doesn't work on BE machines, apparently
 	while (size) {
           gint tosend = MIN (size, frag);
           write (osssink->fd, data, tosend);
@@ -480,6 +481,8 @@ gst_osssink_chain (GstPad *pad, GstBuffer *buf)
 	  size -= frag;
           osssink->handled += tosend;
 	}
+	*/
+	write (osssink->fd, data, size);
       }
       /* no clock, try to be as fast as possible */
       else {
