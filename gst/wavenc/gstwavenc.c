@@ -289,8 +289,30 @@ gst_wavenc_chain (GstPad *pad,
 	gst_pad_push (wavenc->srcpad, outbuf);
         wavenc->flush_header = FALSE;
       }
-    
-      gst_pad_push (wavenc->srcpad, buf);
+
+#if (G_BYTE_ORDER == G_BIG_ENDIAN)
+      /* RIFF only accepts little endian, so we need
+       * to do a little byte order conversion here */
+      if (wavenc->bits == 8) {
+#endif
+        gst_pad_push (wavenc->srcpad, buf);
+#if (G_BYTE_ORDER == G_BIG_ENDIAN)
+      } else {
+        GstBuffer *bsbuf = gst_buffer_new_and_alloc (GST_BUFFER_SIZE(buf));;
+        guint bps = (wavenc->bits + 7) / 8, i, byte;
+        guint8 *bsdata = GST_BUFFER_DATA(bsbuf), *data = GST_BUFFER_DATA (buf);
+
+        /* this is ugly... */
+        for (i = 0; i < GST_BUFFER_SIZE(bsbuf) / bps; i++) {
+          for (byte = 0; byte < bps; byte++) {
+            bsdata[i * bps + byte] = data[(i+1) * bps - (1+byte)];
+          }
+        }
+
+        gst_buffer_unref (buf);
+        gst_pad_push (wavenc->srcpad, bsbuf);
+      }
+#endif
     }
   }
 }
