@@ -925,7 +925,7 @@ gst_avimux_start_file (GstAviMux *avimux)
   avimux->idx = NULL;
 
   /* header */
-  avimux->avi_hdr.streams = avimux->video_pad_connected?1:0 + avimux->audio_pad_connected?1:0;
+  avimux->avi_hdr.streams = (avimux->video_pad_connected?1:0) + (avimux->audio_pad_connected?1:0);
   avimux->is_bigfile = FALSE;
 
   header = gst_avimux_riff_get_avi_header(avimux);
