@@ -1133,7 +1133,37 @@ gst_avimux_do_audio_buffer (GstAviMux *avimux)
       GST_BUFFER_SIZE(data) += pad_bytes;
       pad_bytes = 0;
     }
+
+#if (G_BYTE_ORDER == G_BIG_ENDIAN)
+  if (avimux->auds.format == GST_RIFF_WAVE_FORMAT_PCM &&
+      avimux->auds.size == 16) {
+    GstBuffer *newbuf;
+    gint16 *old_data, *new_data;
+    gint samp;
+
+    old_data = (gint16 *) GST_BUFFER_DATA(data);
+
+    if (gst_buffer_needs_copy_on_write(data)) {
+      newbuf = gst_buffer_new_and_alloc(GST_BUFFER_SIZE(data));
+      new_data = (gint16 *) GST_BUFFER_DATA (newbuf);
+    } else {
+      new_data = old_data;
+      newbuf = data;
+    }
+
+    for (samp = 0; samp < (GST_BUFFER_SIZE(data)/2); samp++) {
+      new_data[samp] = GINT16_FROM_LE(old_data[samp]);
+    }
+
+    if (newbuf != data) {
+      gst_buffer_unref (data);
+      data = newbuf;
+    }
+  }
+
   gst_pad_push(avimux->srcpad, data);
+#endif
+
   if (pad_bytes)
     gst_avimux_send_pad_data(avimux, pad_bytes);
   avimux->audio_buffer_queue = NULL;

@@ -1394,14 +1394,51 @@ gst_avi_demux_loop (GstElement *element)
 	        if (chunk.size) {
                   got_bytes = gst_bytestream_peek (avi_demux->bs, &buf, chunk.size);
 
-                  GST_BUFFER_TIMESTAMP (buf) = next_ts;
-
                   if (stream->need_flush) {
                     /* FIXME, do some flush event here */
                     stream->need_flush = FALSE;
                   }
 	          GST_DEBUG (0, "send stream %d: %lld %d %lld %08x", stream_id, next_ts, stream->current_frame - 1,
 			    stream->delay, chunk.size);
+
+#if (G_BYTE_ORDER == G_BIG_ENDIAN)
+                  /* bla bla byteswap */
+                  do {
+                    GstCaps *caps = gst_pad_get_caps (stream->pad);
+
+                    if (!strcmp (gst_caps_get_mime (caps), "audio/raw")) {
+                      gint width = 0;
+
+                      gst_caps_get_int (caps, "width", &width);
+
+                      if (width == 16) {
+                        int samp;
+                        gint16 *old_data = (gint16 *) GST_BUFFER_DATA (buf);
+                        gint16 *new_data;
+                        GstBuffer *newbuf;
+
+                        if (gst_buffer_needs_copy_on_write (buf)) {
+                          newbuf = gst_buffer_new_and_alloc (got_bytes);
+                          new_data = (gint16 *) GST_BUFFER_DATA (newbuf);
+                        } else {
+                          newbuf = buf;
+                          new_data = old_data;
+                        }
+
+                        for (samp = 0; samp < (got_bytes/2); samp++) {
+                          new_data[samp] = GINT16_FROM_LE (old_data[samp]);
+                        }
+
+                        if (newbuf != buf) {
+                          gst_buffer_unref (buf);
+                          buf = newbuf;
+                        }
+                      }
+                    }
+                  } while (0);
+#endif
+
+                  GST_BUFFER_TIMESTAMP (buf) = next_ts;
 
                   gst_pad_push(stream->pad, buf);
 	        }
