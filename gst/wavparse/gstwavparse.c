@@ -60,60 +60,61 @@ static GstElementDetails gst_wavparse_details = GST_ELEMENT_DETAILS (
   "Erik Walthinsen <omega@cse.ogi.edu>"
 );
 
-GST_PAD_TEMPLATE_FACTORY (sink_template_factory,
+static GstStaticPadTemplate sink_template_factory =
+GST_STATIC_PAD_TEMPLATE (
   "wavparse_sink",
   GST_PAD_SINK,
   GST_PAD_ALWAYS,
-  GST_CAPS_NEW (
-    "wavparse_wav",
-    "audio/x-wav",
-    NULL
-  )
-)
+  GST_STATIC_CAPS ("audio/x-wav")
+);
 
-GST_PAD_TEMPLATE_FACTORY (src_template_factory,
+static GstStaticPadTemplate src_template_factory =
+GST_STATIC_PAD_TEMPLATE (
   "wavparse_src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
-  GST_CAPS_NEW (
+  GST_STATIC_CAPS2_ANY
+);
+#if 0
+  GST_STATIC_CAPS (
     "wavparse_raw",
     "audio/x-raw-int",
-       "endianness",       GST_PROPS_INT (G_LITTLE_ENDIAN),
+       "endianness",       G_TYPE_INT (G_LITTLE_ENDIAN),
        "signed",           GST_PROPS_LIST (
-				GST_PROPS_BOOLEAN (FALSE),
-				GST_PROPS_BOOLEAN (TRUE)
+				G_TYPE_BOOLEAN (FALSE),
+				G_TYPE_BOOLEAN (TRUE)
 			   ),
        "width",            GST_PROPS_LIST (
-	                     GST_PROPS_INT (8),
-	                     GST_PROPS_INT (16)
+	                     G_TYPE_INT (8),
+	                     G_TYPE_INT (16)
 			   ),
        "depth",            GST_PROPS_LIST (
-	                     GST_PROPS_INT (8),
-	                     GST_PROPS_INT (16)
+	                     G_TYPE_INT (8),
+	                     G_TYPE_INT (16)
 			   ),
-       "rate",             GST_PROPS_INT_RANGE (8000, 48000),
-       "channels",         GST_PROPS_INT_RANGE (1, 2)
+       "rate",             G_TYPE_INT_RANGE (8000, 48000),
+       "channels",         G_TYPE_INT_RANGE (1, 2)
   ),
-  GST_CAPS_NEW (
+  GST_STATIC_CAPS (
     "wavparse_mpeg",
     "audio/mpeg",
-      "rate",              GST_PROPS_INT_RANGE (8000, 48000),
-      "channels",          GST_PROPS_INT_RANGE (1, 2),
-      "layer",             GST_PROPS_INT_RANGE (1, 3)
+      "rate",              G_TYPE_INT_RANGE (8000, 48000),
+      "channels",          G_TYPE_INT_RANGE (1, 2),
+      "layer",             G_TYPE_INT_RANGE (1, 3)
   ),
-  GST_CAPS_NEW (
+  GST_STATIC_CAPS (
     "parsewav_law",
     "audio/x-alaw",
-      "rate",              GST_PROPS_INT_RANGE (8000, 48000),
-      "channels",          GST_PROPS_INT_RANGE (1, 2)
+      "rate",              G_TYPE_INT_RANGE (8000, 48000),
+      "channels",          G_TYPE_INT_RANGE (1, 2)
   ),
-  GST_CAPS_NEW (
+  GST_STATIC_CAPS (
     "parsewav_law",
     "audio/x-mulaw",
-      "rate",              GST_PROPS_INT_RANGE (8000, 48000),
-      "channels",          GST_PROPS_INT_RANGE (1, 2)
+      "rate",              G_TYPE_INT_RANGE (8000, 48000),
+      "channels",          G_TYPE_INT_RANGE (1, 2)
   )
-)
+#endif
 
 /* WavParse signals and args */
 enum {
@@ -123,7 +124,6 @@ enum {
 
 enum {
   PROP_0,
-  PROP_METADATA
 };
 
 static GstElementClass *parent_class = NULL;
@@ -160,8 +160,8 @@ gst_wavparse_base_init (gpointer g_class)
   gst_element_class_set_details (element_class, &gst_wavparse_details);
 
   /* register src pads */
-  gst_element_class_add_pad_template (element_class, GST_PAD_TEMPLATE_GET (sink_template_factory));
-  gst_element_class_add_pad_template (element_class, GST_PAD_TEMPLATE_GET (src_template_factory));
+  gst_element_class_add_pad_template (element_class, gst_static_pad_template_get (&sink_template_factory));
+  gst_element_class_add_pad_template (element_class, gst_static_pad_template_get (&src_template_factory));
 }
 static void
 gst_wavparse_class_init (GstWavParseClass *klass) 
@@ -176,21 +176,13 @@ gst_wavparse_class_init (GstWavParseClass *klass)
 
   object_class->get_property = gst_wavparse_get_property;
   gstelement_class->change_state = gst_wavparse_change_state;
-
-  g_object_class_install_property (object_class, PROP_METADATA,
-				   g_param_spec_boxed ("metadata",
-						       "Metadata", "Metadata",
-						       GST_TYPE_CAPS,
-						       G_PARAM_READABLE));
 }
 
 static void 
 gst_wavparse_init (GstWavParse *wavparse) 
 {
-  GstProps *props;
-  
   /* sink */
-  wavparse->sinkpad = gst_pad_new_from_template (GST_PAD_TEMPLATE_GET (sink_template_factory), "sink");
+  wavparse->sinkpad = gst_pad_new_from_template (gst_static_pad_template_get (&sink_template_factory), "sink");
   gst_element_add_pad (GST_ELEMENT (wavparse), wavparse->sinkpad);
 
   gst_pad_set_formats_function (wavparse->sinkpad, gst_wavparse_get_formats);
@@ -200,7 +192,7 @@ gst_wavparse_init (GstWavParse *wavparse)
   gst_pad_set_query_function (wavparse->sinkpad, gst_wavparse_pad_query);
 
   /* source */
-  wavparse->srcpad = gst_pad_new_from_template (GST_PAD_TEMPLATE_GET (src_template_factory), "src");
+  wavparse->srcpad = gst_pad_new_from_template (gst_static_pad_template_get (&src_template_factory), "src");
   gst_element_add_pad (GST_ELEMENT (wavparse), wavparse->srcpad);
   gst_pad_set_formats_function (wavparse->srcpad, gst_wavparse_get_formats);
   gst_pad_set_convert_function (wavparse->srcpad, gst_wavparse_pad_convert);
@@ -216,14 +208,6 @@ gst_wavparse_init (GstWavParse *wavparse)
   wavparse->bps = 0;
   wavparse->seek_pending = FALSE;
   wavparse->seek_offset = 0;
-
-  props = gst_props_empty_new ();
-
-  /* Metadata is added later when we find it */
-  gst_caps_replace_sink (&wavparse->metadata,
-			 gst_caps_new ("wav_metadata",
-				       "application/x-gst-metadata",
-				       props));
 }
 
 static void
@@ -237,15 +221,12 @@ gst_wavparse_get_property (GObject *object,
   wavparse = GST_WAVPARSE (object);
 
   switch (prop_id) {
-  case PROP_METADATA:
-    g_value_set_boxed (value, wavparse->metadata);
-    break;
-
   default:
     break;
   }
 }
 
+#if 0
 static void
 gst_wavparse_parse_adtl (GstWavParse *wavparse,
 			 int len)
@@ -260,7 +241,7 @@ gst_wavparse_parse_adtl (GstWavParse *wavparse,
   char *label_name;
   GstProps *props;
   GstPropsEntry *entry;
-  GstCaps *new_caps;
+  GstCaps2 *new_caps;
   GList *caps = NULL;
 
   props = wavparse->metadata->properties;
@@ -309,8 +290,8 @@ gst_wavparse_parse_adtl (GstWavParse *wavparse,
       new_caps = gst_caps_new ("label",
 															 "application/x-gst-metadata",
 															 gst_props_new (
-																 "identifier", GST_PROPS_INT (labl.identifier),
-																 "name", GST_PROPS_STRING (label_name),
+																 "identifier", G_TYPE_INT (labl.identifier),
+																 "name", G_TYPE_STRING (label_name),
 																 NULL));
       
       if (gst_props_get (props, "labels", &caps, NULL)) {
@@ -361,9 +342,9 @@ gst_wavparse_parse_adtl (GstWavParse *wavparse,
       new_caps = gst_caps_new ("ltxt",
 															 "application/x-gst-metadata",
 															 gst_props_new (
-																 "identifier", GST_PROPS_INT (ltxt.identifier),
-																 "name", GST_PROPS_STRING (label_name),
-																 "length", GST_PROPS_INT (ltxt.length),
+																 "identifier", G_TYPE_INT (ltxt.identifier),
+																 "name", G_TYPE_STRING (label_name),
+																 "length", G_TYPE_INT (ltxt.length),
 																 NULL));
 			
       if (gst_props_get (props, "ltxts", &caps, NULL)) {
@@ -404,8 +385,8 @@ gst_wavparse_parse_adtl (GstWavParse *wavparse,
       new_caps = gst_caps_new ("note",
 															 "application/x-gst-metadata",
 															 gst_props_new (
-																 "identifier", GST_PROPS_INT (note.identifier),
-																 "name", GST_PROPS_STRING (label_name),
+																 "identifier", G_TYPE_INT (note.identifier),
+																 "name", G_TYPE_STRING (label_name),
 																 NULL));
       
       if (gst_props_get (props, "notes", &caps, NULL)) {
@@ -535,7 +516,7 @@ gst_wavparse_parse_info (GstWavParse *wavparse,
     if (type) {
       GstPropsEntry *entry;
 
-      entry = gst_props_entry_new (type, GST_PROPS_STRING (name));
+      entry = gst_props_entry_new (type, G_TYPE_STRING (name));
       gst_props_add_entry (wavparse->metadata->properties, entry);
     }
   }
@@ -589,13 +570,13 @@ gst_wavparse_parse_cues (GstWavParse *wavparse,
     points = (struct _gst_riff_cuepoints *) tempdata;
     
     for (i = 0; i < cue.cuepoints; i++) {
-      GstCaps *caps;
+      GstCaps2 *caps;
 
       caps = gst_caps_new ("cues",
 													 "application/x-gst-metadata",
 													 gst_props_new (
-														 "identifier", GST_PROPS_INT (points[i].identifier),
-														 "position", GST_PROPS_INT (points[i].offset),
+														 "identifier", G_TYPE_INT (points[i].identifier),
+														 "position", G_TYPE_INT (points[i].offset),
 														 NULL));
       cues = g_list_append (cues, caps);
     }
@@ -611,7 +592,7 @@ static void
 gst_wavparse_parse_fmt (GstWavParse *wavparse)
 {
   GstWavParseFormat *format;
-  GstCaps *caps = NULL;
+  GstCaps2 *caps = NULL;
   guint8 *fmtdata;
   GstByteStream *bs = wavparse->bs;
   guint32 got_bytes;
@@ -639,22 +620,22 @@ gst_wavparse_parse_fmt (GstWavParse *wavparse)
 				return;
       }
 			
-      caps = GST_CAPS_NEW ("parsewav_src",
+      caps = GST_STATIC_CAPS ("parsewav_src",
 													 mime,
-													 "rate", GST_PROPS_INT (wavparse->rate),
-													 "channels", GST_PROPS_INT (wavparse->channels)
+													 "rate", G_TYPE_INT (wavparse->rate),
+													 "channels", G_TYPE_INT (wavparse->channels)
 				);
     }
 			
     case GST_RIFF_WAVE_FORMAT_PCM:
-      caps = GST_CAPS_NEW ("parsewav_src",
+      caps = GST_STATIC_CAPS ("parsewav_src",
 													 "audio/x-raw-int",
-													 "endianness", GST_PROPS_INT (G_LITTLE_ENDIAN),
-													 "signed", GST_PROPS_BOOLEAN ((wavparse->width > 8) ? TRUE : FALSE),
-													 "width", GST_PROPS_INT (wavparse->width),
-													 "depth", GST_PROPS_INT (wavparse->width),
-													 "rate", GST_PROPS_INT (wavparse->rate),
-													 "channels", GST_PROPS_INT (wavparse->channels)
+													 "endianness", G_TYPE_INT (G_LITTLE_ENDIAN),
+													 "signed", G_TYPE_BOOLEAN ((wavparse->width > 8) ? TRUE : FALSE),
+													 "width", G_TYPE_INT (wavparse->width),
+													 "depth", G_TYPE_INT (wavparse->width),
+													 "rate", G_TYPE_INT (wavparse->rate),
+													 "channels", G_TYPE_INT (wavparse->channels)
 				);
       break;
 			
@@ -662,11 +643,11 @@ gst_wavparse_parse_fmt (GstWavParse *wavparse)
     case GST_RIFF_WAVE_FORMAT_MPEGL3: {
       int layer = (wavparse->format == GST_RIFF_WAVE_FORMAT_MPEGL12) ? 2 : 3;
 			
-      caps = GST_CAPS_NEW ("parsewav_src",
+      caps = GST_STATIC_CAPS ("parsewav_src",
 													 "audio/mpeg",
-													 "layer", GST_PROPS_INT (layer),
-													 "rate", GST_PROPS_INT (wavparse->rate),
-													 "channels", GST_PROPS_INT (wavparse->channels)
+													 "layer", G_TYPE_INT (layer),
+													 "rate", G_TYPE_INT (wavparse->rate),
+													 "channels", G_TYPE_INT (wavparse->channels)
 				);
     }
       break;
@@ -685,6 +666,7 @@ gst_wavparse_parse_fmt (GstWavParse *wavparse)
 							 wavparse->rate, wavparse->channels);
   }
 }
+#endif
 
 static gboolean
 gst_wavparse_handle_sink_event (GstWavParse *wavparse)
@@ -851,32 +833,34 @@ gst_wavparse_loop (GstElement *element)
 		
     switch (chunk.id) {
     case GST_RIFF_TAG_data:
+#if 0
       wavparse->state = GST_WAVPARSE_DATA;
 			wavparse->dataleft = chunk.size;
 			wavparse->byteoffset = 0;
 
 			flush = 0;
+#endif
       break;
       
     case GST_RIFF_TAG_fmt:
-      gst_wavparse_parse_fmt (wavparse);
+      //gst_wavparse_parse_fmt (wavparse);
       break;
 
     case GST_RIFF_TAG_cue:
-      gst_wavparse_parse_cues (wavparse, chunk.size);
+      //gst_wavparse_parse_cues (wavparse, chunk.size);
       break;
       
     case GST_RIFF_TAG_LIST:
       GST_DEBUG ("list type: %4.4s", (char *) &chunk.type);
       switch (chunk.type) {
       case GST_RIFF_LIST_INFO:
-	gst_wavparse_parse_info (wavparse, chunk.size - 4);
+	//gst_wavparse_parse_info (wavparse, chunk.size - 4);
 	flush = 0;
 
 	break;
 				
       case GST_RIFF_LIST_adtl:
-	gst_wavparse_parse_adtl (wavparse, chunk.size - 4);
+	//gst_wavparse_parse_adtl (wavparse, chunk.size - 4);
 	flush = 0;
 	break;
 
@@ -1106,7 +1090,6 @@ gst_wavparse_change_state (GstElement *element)
       wavparse->bps = 0;
       wavparse->seek_pending = FALSE;
       wavparse->seek_offset = 0;
-      gst_caps_replace (&wavparse->metadata, NULL);
       
       break;
     case GST_STATE_READY_TO_NULL:
