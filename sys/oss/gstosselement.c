@@ -749,7 +749,6 @@ gst_osselement_open_audio (GstOssElement * oss)
             GST_ERROR_SYSTEM);
         break;
       default:
-        /* FIXME: strerror is not threadsafe */
         if (mode == GST_OSSELEMENT_WRITE)
           GST_ELEMENT_ERROR (oss, RESOURCE, OPEN_WRITE,
               (_("Could not open device \"%s\" for writing."), oss->device),

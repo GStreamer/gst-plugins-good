@@ -242,6 +242,7 @@ gst_osssink_init (GstOssSink * osssink)
   osssink->sync = TRUE;
   osssink->provided_clock =
       gst_audio_clock_new ("ossclock", gst_osssink_get_time, osssink);
+  gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock), TRUE);
   gst_object_set_parent (GST_OBJECT (osssink->provided_clock),
       GST_OBJECT (osssink));
   osssink->handled = 0;
@@ -426,8 +427,6 @@ gst_osssink_handle_event (GstPad * pad, GstEvent * event)
 
       GST_STREAM_LOCK (pad);
       ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_SYNC, 0);
-      gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
-          FALSE);
       gst_osssink_finish_preroll (osssink, pad);
       gst_element_post_message (GST_ELEMENT (osssink),
           gst_message_new_eos (GST_OBJECT (osssink)));
@@ -486,64 +485,6 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
 
   data = GST_BUFFER_DATA (buf);
   to_write = GST_BUFFER_SIZE (buf);
-#if 0
-  /* sync audio with buffers timestamp. elementtime is the *current* time.
-   * soundtime is the time if the soundcard has processed all queued data. */
-  if (GST_ELEMENT (osssink)->clock) {
-    elementtime = gst_clock_get_time (GST_ELEMENT (osssink)->clock) -
-        GST_ELEMENT (osssink)->base_time;
-  } else {
-    elementtime = 0;
-  }
-  delay = gst_osssink_get_delay (osssink);
-  if (delay < 0)
-    delay = 0;
-  soundtime = elementtime + delay * GST_SECOND / GST_OSSELEMENT (osssink)->bps;
-  if (GST_BUFFER_TIMESTAMP_IS_VALID (buf)) {
-    buftime = GST_BUFFER_TIMESTAMP (buf);
-  } else {
-    buftime = soundtime;
-  }
-  GST_LOG_OBJECT (osssink,
-      "time: real %" GST_TIME_FORMAT ", buffer: %" GST_TIME_FORMAT,
-      GST_TIME_ARGS (soundtime), GST_TIME_ARGS (buftime));
-  if (MAX (buftime, soundtime) - MIN (buftime, soundtime) > (GST_SECOND / 10)) {
-    /* we need to adjust to the buffers here */
-    GST_INFO_OBJECT (osssink,
-        "need sync: real %" GST_TIME_FORMAT ", buffer: %" GST_TIME_FORMAT,
-        GST_TIME_ARGS (soundtime), GST_TIME_ARGS (buftime));
-    if (soundtime > buftime) {
-      /* do *not* throw frames out. It's useless. The next frame will come in
-       * too late. And the next one. And so on. We don't want to lose sound.
-       * This is a placeholder for what - some day - should become QoS, i.e.
-       * sending events upstream to drop buffers. */
-    } else {
-      guint64 to_handle =
-          (((buftime -
-                  soundtime) * GST_OSSELEMENT (osssink)->bps / GST_SECOND) /
-          ((GST_OSSELEMENT (osssink)->width / 8) *
-              GST_OSSELEMENT (osssink)->channels)) *
-          (GST_OSSELEMENT (osssink)->width / 8) *
-          GST_OSSELEMENT (osssink)->channels;
-      guint8 *sbuf = g_new (guint8, to_handle);
-
-      memset (sbuf, (GST_OSSELEMENT (osssink)->width == 8) ? 0 : 128,
-          to_handle);
-      while (to_handle > 0) {
-        gint done = write (GST_OSSELEMENT (osssink)->fd, sbuf,
-            MIN (to_handle, osssink->chunk_size));
-
-        if (done == -1 && errno != EINTR) {
-          break;
-        } else {
-          to_handle -= done;
-          osssink->handled += done;
-        }
-      }
-      g_free (sbuf);
-    }
-  }
-#endif
 
   if (GST_OSSELEMENT (osssink)->fd >= 0 && to_write > 0) {
     if (!osssink->mute) {
@@ -565,10 +506,6 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
       g_warning ("muting osssinks unimplemented wrt clocks!");
     }
   }
-#if 0
-  gst_audio_clock_update_time ((GstAudioClock *) osssink->provided_clock,
-      gst_osssink_get_time (osssink->provided_clock, osssink));
-#endif
 
 done:
   GST_STREAM_UNLOCK (pad);
@@ -737,20 +674,14 @@ gst_osssink_change_state (GstElement * element)
         result = GST_STATE_ASYNC;
       break;
     case GST_STATE_PAUSED_TO_PLAYING:
-      gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
-          TRUE);
       break;
     case GST_STATE_PLAYING_TO_PAUSED:
-      if (GST_FLAG_IS_SET (element, GST_OSSSINK_OPEN))
-        ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
-      gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
-          FALSE);
+      ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
       if (!osssink->in_eos)
         result = GST_STATE_ASYNC;
       break;
     case GST_STATE_PAUSED_TO_READY:
-      if (GST_FLAG_IS_SET (element, GST_OSSSINK_OPEN))
-        ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
+      ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
       gst_osselement_reset (GST_OSSELEMENT (osssink));
       osssink->handled = 0;
       break;
