@@ -530,8 +530,8 @@ gst_avimux_request_new_pad (GstElement     *element,
     return NULL;
   }
 
-  g_signal_connect(newpad, "connected",
-    G_CALLBACK(gst_avimux_pad_connect), (gpointer)avimux);
+  g_signal_connect(newpad, "linked",
+    G_CALLBACK(gst_avimux_pad_link), (gpointer)avimux);
   g_signal_connect(newpad, "unlinked",
     G_CALLBACK(gst_avimux_pad_unlink), (gpointer)avimux);
   gst_pad_set_link_function (newpad, gst_avimux_sinkconnect);
