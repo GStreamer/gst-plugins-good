@@ -279,19 +279,11 @@ gst_flacenc_init (FlacEnc *flacenc)
 
   flacenc->encoder = FLAC__seekable_stream_encoder_new();
 
-  FLAC__seekable_stream_encoder_set_write_callback (flacenc->encoder, 
-		                        gst_flacenc_write_callback);
-  FLAC__seekable_stream_encoder_set_seek_callback (flacenc->encoder, 
-		                        gst_flacenc_seek_callback);
-  					
-  FLAC__seekable_stream_encoder_set_client_data (flacenc->encoder, 
-		                        flacenc);
-
   flacenc->metadata = GST_CAPS_NEW (
                   "flacenc_metadata",
                   "application/x-gst-metadata",
 		    "comment",  GST_PROPS_STRING ("Track encoded with GStreamer"),
-                   "date",     GST_PROPS_STRING (""),
+                    "date",     GST_PROPS_STRING (""),
 		    "tracknum", GST_PROPS_STRING (""),
 		    "title",    GST_PROPS_STRING (""),
 		    "artist",   GST_PROPS_STRING (""),
@@ -515,6 +507,14 @@ gst_flacenc_chain (GstPad *pad, GstBuffer *buf)
 		  FLAC__SEEKABLE_STREAM_ENCODER_UNINITIALIZED) 
   {
     FLAC__SeekableStreamEncoderState state;
+
+    FLAC__seekable_stream_encoder_set_write_callback (flacenc->encoder, 
+		                        gst_flacenc_write_callback);
+    FLAC__seekable_stream_encoder_set_seek_callback (flacenc->encoder, 
+		                        gst_flacenc_seek_callback);
+  					
+    FLAC__seekable_stream_encoder_set_client_data (flacenc->encoder, 
+		                        flacenc);
 
     gst_flacenc_set_metadata (flacenc, flacenc->metadata);
     state = FLAC__seekable_stream_encoder_init (flacenc->encoder);
