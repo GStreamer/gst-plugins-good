@@ -776,10 +776,11 @@ gst_dv1394src_uri_set_uri (GstURIHandler * handler, const gchar * uri)
 {
   gchar *protocol, *location;
   gboolean ret;
+  GstDV1394Src *gst_dv1394src;
 
   ret = TRUE;
 
-  GstDV1394Src *gst_dv1394src = GST_DV1394SRC (handler);
+  gst_dv1394src = GST_DV1394SRC (handler);
 
   protocol = gst_uri_get_protocol (uri);
   if (strcmp (protocol, "dv") != 0) {
