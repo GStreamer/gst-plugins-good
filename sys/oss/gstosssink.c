@@ -364,6 +364,55 @@ gst_osssink_set_clock (GstElement * element, GstClock * clock)
   osssink->clock = clock;
 }
 
+static GstFlowReturn
+gst_osssink_finish_preroll (GstOssSink * osssink, GstPad * pad)
+{
+  GstFlowReturn result = GST_FLOW_OK;
+
+  /* grab state change lock */
+  GST_STATE_LOCK (osssink);
+  /* if we are going to PAUSED, we can commit the state change */
+  if (GST_STATE_PENDING (osssink) == GST_STATE_PAUSED) {
+    gst_element_commit_state (GST_ELEMENT (osssink));
+  }
+  /* if we are paused we need to wait for playing to continue */
+  if (GST_STATE (osssink) == GST_STATE_PAUSED) {
+    GST_DEBUG_OBJECT (osssink,
+        "element %s wants to finish preroll", GST_ELEMENT_NAME (osssink));
+
+    /* here we wait for the next state change */
+    while (GST_STATE (osssink) == GST_STATE_PAUSED) {
+      if (GST_RPAD_IS_FLUSHING (pad)) {
+        GST_DEBUG_OBJECT (osssink, "pad is flushing");
+        result = GST_FLOW_UNEXPECTED;
+        goto done;
+      }
+
+      GST_DEBUG_OBJECT (osssink, "waiting for next state change");
+      GST_STATE_WAIT (osssink);
+      GST_DEBUG_OBJECT (osssink, "got unlocked, maybe a state change");
+
+      if (GST_RPAD_IS_FLUSHING (pad)) {
+        GST_DEBUG_OBJECT (osssink, "pad is flushing");
+        result = GST_FLOW_UNEXPECTED;
+        goto done;
+      }
+    }
+
+    /* check if we got playing */
+    if (GST_STATE (osssink) != GST_STATE_PLAYING) {
+      /* not playing, we can't accept the buffer */
+      result = GST_FLOW_WRONG_STATE;
+    }
+
+    GST_DEBUG_OBJECT (osssink, "done preroll");
+  }
+done:
+  GST_STATE_UNLOCK (osssink);
+
+  return result;
+}
+
 static gboolean
 gst_osssink_handle_event (GstPad * pad, GstEvent * event)
 {
@@ -372,21 +421,37 @@ gst_osssink_handle_event (GstPad * pad, GstEvent * event)
 
   osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
 
-  GST_STREAM_LOCK (pad);
   switch (GST_EVENT_TYPE (event)) {
     case GST_EVENT_EOS:
+
+      GST_STREAM_LOCK (pad);
       ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_SYNC, 0);
       gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
           FALSE);
-      gst_element_finish_preroll (GST_ELEMENT (osssink),
-          GST_STREAM_GET_LOCK (pad));
+      gst_osssink_finish_preroll (osssink, pad);
       gst_element_post_message (GST_ELEMENT (osssink),
           gst_message_new_eos (GST_OBJECT (osssink)));
+      GST_STATE_LOCK (osssink);
+      osssink->in_eos = TRUE;
+      GST_STATE_UNLOCK (osssink);
+      GST_STREAM_UNLOCK (pad);
+      break;
+    case GST_EVENT_FLUSH:
+      /* make sure we are not blocked on anything */
+      ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
+
+      /* unlock from a possible state change/preroll */
+      GST_STATE_LOCK (osssink);
+      osssink->in_eos = FALSE;
+      g_cond_broadcast (GST_STATE_GET_COND (osssink));
+      GST_STATE_UNLOCK (osssink);
+      /* now we are completely unblocked and the _chain method
+       * will return */
+      result = TRUE;
       break;
     default:
       break;
   }
-  GST_STREAM_UNLOCK (pad);
 
   return result;
 }
@@ -414,9 +479,7 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
   }
 
   GST_STREAM_LOCK (pad);
-  result =
-      gst_element_finish_preroll (GST_ELEMENT (osssink),
-      GST_STREAM_GET_LOCK (pad));
+  result = gst_osssink_finish_preroll (osssink, pad);
   if (result != GST_FLOW_OK) {
     goto done;
   }
@@ -670,7 +733,8 @@ gst_osssink_change_state (GstElement * element)
     case GST_STATE_NULL_TO_READY:
       break;
     case GST_STATE_READY_TO_PAUSED:
-      result = GST_STATE_ASYNC;
+      if (!osssink->in_eos)
+        result = GST_STATE_ASYNC;
       break;
     case GST_STATE_PAUSED_TO_PLAYING:
       gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
@@ -681,6 +745,8 @@ gst_osssink_change_state (GstElement * element)
         ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
       gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock),
           FALSE);
+      if (!osssink->in_eos)
+        result = GST_STATE_ASYNC;
       break;
     case GST_STATE_PAUSED_TO_READY:
       if (GST_FLAG_IS_SET (element, GST_OSSSINK_OPEN))

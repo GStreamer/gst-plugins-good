@@ -61,6 +61,7 @@ struct _GstOssSink {
   GstClock 	*clock;
   gboolean	 sync;
   guint64	 handled;
+  gboolean	 in_eos;
 
   gboolean 	 mute;
   guint 	 bufsize;
