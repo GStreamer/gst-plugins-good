@@ -58,7 +58,7 @@ static gboolean 		gst_osssink_query 		(GstElement *element, GstQueryType type,
 static gboolean 		gst_osssink_sink_query 		(GstPad *pad, GstQueryType type,
 								 GstFormat *format, gint64 *value);
 
-static GstPadLinkReturn		gst_osssink_sinkconnect		(GstPad *pad, GstCaps *caps);
+static GstPadLinkReturn		gst_osssink_sinkconnect		(GstPad *pad, const GstCaps2 *caps);
 
 static void 			gst_osssink_set_property	(GObject *object, guint prop_id, const GValue *value, 
 		  						 GParamSpec *pspec);
@@ -83,28 +83,18 @@ enum {
   /* FILL ME */
 };
 
-GST_PAD_TEMPLATE_FACTORY (osssink_sink_factory,
+static GstStaticPadTemplate osssink_sink_factory =
+GST_STATIC_PAD_TEMPLATE (
   "sink",
   GST_PAD_SINK,
   GST_PAD_ALWAYS,
-  GST_CAPS_NEW (
-    "osssink_sink",
-    "audio/x-raw-int",
-      "endianness", GST_PROPS_INT (G_BYTE_ORDER),
-      "signed",     GST_PROPS_LIST (
-         	      GST_PROPS_BOOLEAN (FALSE),
-     		      GST_PROPS_BOOLEAN (TRUE)
-      		    ),
-      "width",      GST_PROPS_LIST (
-         	      GST_PROPS_INT (8),
-     		      GST_PROPS_INT (16)
-      		    ),
-      "depth",      GST_PROPS_LIST (
-    		      GST_PROPS_INT (8),
-     		      GST_PROPS_INT (16)
-     		    ),
-      "rate",       GST_PROPS_INT_RANGE (1000, 48000),
-      "channels",   GST_PROPS_INT_RANGE (1, 2)
+  GST_STATIC_CAPS ("audio/x-raw-int, "
+      "endianness = (int) BYTE_ORDER, "
+      "signed = (boolean) { TRUE, FALSE }, "
+      "width = (int) { 8, 16 }, "
+      "depth = (int) { 8, 16 }, "
+      "rate = (int) [ 1000, 48000 ], "
+      "channels = (int) [ 1, 2 ]"
   )
 );
 
@@ -164,7 +154,7 @@ gst_osssink_base_init (gpointer g_class)
   GstElementClass *element_class = GST_ELEMENT_CLASS (g_class);
   
   gst_element_class_set_details (element_class, &gst_osssink_details);
-  gst_element_class_add_pad_template (element_class, GST_PAD_TEMPLATE_GET (osssink_sink_factory));
+  gst_element_class_add_pad_template (element_class, gst_static_pad_template_get (&osssink_sink_factory));
 }
 static void
 gst_osssink_class_init (GstOssSinkClass *klass) 
@@ -214,7 +204,7 @@ static void
 gst_osssink_init (GstOssSink *osssink) 
 {
   osssink->sinkpad = gst_pad_new_from_template (
-		  GST_PAD_TEMPLATE_GET (osssink_sink_factory), "sink");
+		  gst_static_pad_template_get (&osssink_sink_factory), "sink");
   gst_element_add_pad (GST_ELEMENT (osssink), osssink->sinkpad);
   gst_pad_set_link_function (osssink->sinkpad, gst_osssink_sinkconnect);
   gst_pad_set_bufferpool_function (osssink->sinkpad, gst_osssink_get_bufferpool);
@@ -241,12 +231,9 @@ gst_osssink_init (GstOssSink *osssink)
 
 
 static GstPadLinkReturn 
-gst_osssink_sinkconnect (GstPad *pad, GstCaps *caps) 
+gst_osssink_sinkconnect (GstPad *pad, const GstCaps2 *caps) 
 {
   GstOssSink *osssink = GST_OSSSINK (gst_pad_get_parent (pad));
-
-  if (!GST_CAPS_IS_FIXED (caps))
-    return GST_PAD_LINK_DELAYED;
 
   if (!gst_osselement_parse_caps (GST_OSSELEMENT (osssink), caps))
     return GST_PAD_LINK_REFUSED;

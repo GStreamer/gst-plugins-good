@@ -67,50 +67,27 @@ enum {
   /* FILL ME */
 };
 
-static GstPadTemplate*
-ossgst_src_factory (void)
-{
-  return
-    gst_pad_template_new (
-  	"src",
-  	GST_PAD_SRC,
-  	GST_PAD_ALWAYS,
-  	gst_caps_new (
-  	  "ossgst_src",
-    	  "audio/x-raw-int",
-	  gst_props_new (
-      	      "endianness", GST_PROPS_INT (G_BYTE_ORDER),
-      	      "signed",     GST_PROPS_LIST (
- 		      	      GST_PROPS_BOOLEAN (FALSE),
- 	      		      GST_PROPS_BOOLEAN (TRUE)
-		      	    ),
-      	      "width",      GST_PROPS_LIST (
-   		      	      GST_PROPS_INT (8),
-	      		      GST_PROPS_INT (16)
-	      		    ),
-      	      "depth",      GST_PROPS_LIST (
- 	      		      GST_PROPS_INT (8),
-	      		      GST_PROPS_INT (16)
-	      		    ),
-      	      "rate",       GST_PROPS_INT_RANGE (8000, 48000),
-      	      "channels",   GST_PROPS_INT_RANGE (1, 2),
-	      NULL)),
-	gst_caps_new (
-  	  "ossgst_src",
-    	  "audio/x-mulaw",
-	  gst_props_new (
-      	      "rate",       GST_PROPS_INT_RANGE (8000, 48000),
-      	      "channels",   GST_PROPS_INT_RANGE (1, 2),
-	      NULL)),
-	gst_caps_new (
-  	  "ossgst_src",
-    	  "audio/x-alaw",
-	  gst_props_new (
-      	      "rate",       GST_PROPS_INT_RANGE (8000, 48000),
-      	      "channels",   GST_PROPS_INT_RANGE (1, 2),
-	      NULL)),
-        NULL);
-}
+static GstStaticPadTemplate ossgst_src_factory =
+GST_STATIC_PAD_TEMPLATE (
+    "src",
+    GST_PAD_SRC,
+    GST_PAD_ALWAYS,
+    GST_STATIC_CAPS (
+      "audio/x-raw-int, "
+	"endianness = (int) BYTE_ORDER, "
+	"signed = (boolean) { TRUE, FALSE }, "
+	"width = (int) { 8, 16 }, "
+	"depth = (int) { 8, 16 }, "
+	"rate = (int) [ 1000, 48000 ], "
+	"channels = (int) [ 1, 2 ]; "
+      "audio/x-mulaw, "
+	"rate = (int) [ 1000, 48000 ], "
+	"channels = (int) [ 1, 2 ]; "
+      "audio/x-alaw, "
+	"rate = (int) [ 1000, 48000 ], "
+	"channels = (int) [ 1, 2 ]"
+    )
+);
 
 
 static GstElementClass *parent_class = NULL;
@@ -147,7 +124,7 @@ gst_ossgst_base_init (gpointer g_class)
   GstElementClass *element_class = GST_ELEMENT_CLASS (g_class);
   
   gst_element_class_set_details (element_class, &gst_ossgst_details);
-  gst_element_class_add_pad_template (element_class, GST_PAD_TEMPLATE_GET (ossgst_src_factory));
+  gst_element_class_add_pad_template (element_class, gst_static_pad_template_get (&ossgst_src_factory));
 }
 static void
 gst_ossgst_class_init (GstOssGstClass *klass) 
@@ -184,10 +161,10 @@ gst_ossgst_init (GstOssGst *ossgst)
   ossgst->command = NULL;
 }
 
-static GstCaps* 
+static GstCaps2* 
 gst_ossgst_format_to_caps (gint format, gint stereo, gint rate) 
 {
-  GstCaps *caps = NULL;
+  GstCaps2 *caps = NULL;
   gint law = 0;
   gulong endianness = G_BYTE_ORDER;
   gboolean is_signed = TRUE;
@@ -244,35 +221,26 @@ gst_ossgst_format_to_caps (gint format, gint stereo, gint rate)
   if (supported) {
     switch (law) {
       case 0:
-        caps = gst_caps_new (
-		  "ossgst_caps",
-		  "audio/x-raw-int",
-		  gst_props_new (
-			    "endianness",	GST_PROPS_INT (endianness),
-			    "signed",		GST_PROPS_BOOLEAN (is_signed),
-			    "width",		GST_PROPS_INT (width),
-			    "depth",		GST_PROPS_INT (width),
-			    "rate",		GST_PROPS_INT (rate),
-			    "channels",		GST_PROPS_INT (stereo?2:1),
-			    NULL));
+        caps = gst_caps2_new_simple ( "audio/x-raw-int",
+	    "endianness",	G_TYPE_INT, endianness,
+	    "signed",		G_TYPE_BOOLEAN, is_signed,
+	    "width",		G_TYPE_INT, width,
+	    "depth",		G_TYPE_INT, width,
+	    "rate",		G_TYPE_INT, rate,
+	    "channels",		G_TYPE_INT, stereo?2:1,
+	    NULL);
         break;
       case 1:
-        caps = gst_caps_new (
-		  "ossgst_caps",
-		  "audio/x-mulaw",
-		  gst_props_new (
-			    "rate",		GST_PROPS_INT (rate),
-			    "channels",		GST_PROPS_INT (stereo?2:1),
-			    NULL));
+        caps = gst_caps2_new_simple ("audio/x-mulaw",
+	    "rate",		G_TYPE_INT, rate,
+	    "channels",		G_TYPE_INT, stereo?2:1,
+	    NULL);
         break;
       case 2:
-        caps = gst_caps_new (
-		  "ossgst_caps",
-		  "audio/x-alaw",
-		  gst_props_new (
-			    "rate",		GST_PROPS_INT (rate),
-			    "channels",		GST_PROPS_INT (stereo?2:1),
-			    NULL));
+        caps = gst_caps2_new_simple ("audio/x-alaw",
+	    "rate",		G_TYPE_INT, rate,
+	    "channels",		G_TYPE_INT, stereo?2:1,
+	    NULL);
         break;
     }
   }
@@ -312,7 +280,7 @@ gst_ossgst_get (GstPad *pad)
         break;
       case CMD_FORMAT:
 	{
-	  GstCaps *caps;
+	  GstCaps2 *caps;
 
 	  caps = gst_ossgst_format_to_caps (cmd.cmd.format.format, 
 					    cmd.cmd.format.stereo, 
