@@ -115,23 +115,20 @@ gst_aasink_drivers_get_type (void)
   if (!driver_type) {
     GEnumValue *drivers;
     const struct aa_driver *driver;
-    gint i = 0;
+    gint n_drivers;
+    gint i;
 
-    driver = aa_drivers[i++];
-    while (driver) {
-      driver = aa_drivers[i++];
+    for (n_drivers = 0; aa_drivers[n_drivers]; n_drivers++){
+      /* count number of drivers */
     }
     
-    drivers = g_new0(GEnumValue, i);
+    drivers = g_new0(GEnumValue, n_drivers + 1);
 
-    i = 0;
-    driver = aa_drivers[i];
-    while (driver) {
+    for (i = 0; i < n_drivers; i++){
+      driver = aa_drivers[i];
       drivers[i].value = i;
       drivers[i].value_name = g_strdup (driver->shortname);
       drivers[i].value_nick = g_strdup (driver->name);
-      i++;
-      driver = aa_drivers[i];
     }
     drivers[i].value = 0;
     drivers[i].value_name = NULL;
@@ -149,20 +146,19 @@ gst_aasink_dither_get_type (void)
   static GType dither_type = 0;
   if (!dither_type) {
     GEnumValue *ditherers;
-    gint i = 0;
+    gint n_ditherers;
+    gint i;
 
-    while (aa_dithernames[i]) {
-      i++;
+    for (n_ditherers = 0; aa_dithernames[n_ditherers]; n_ditherers++){
+      /* count number of ditherers */
     }
     
-    ditherers = g_new0(GEnumValue, i + 1);
+    ditherers = g_new0(GEnumValue, n_ditherers + 1);
 
-    i = 0;
-    while (aa_dithernames[i]) {
+    for (i = 0; i < n_ditherers; i++){
       ditherers[i].value = i;
       ditherers[i].value_name = g_strdup (aa_dithernames[i]);
       ditherers[i].value_nick = g_strdup (aa_dithernames[i]);
-      i++;
     }
     ditherers[i].value = 0;
     ditherers[i].value_name = NULL;
@@ -239,7 +235,6 @@ static GstPadLinkReturn
 gst_aasink_sinkconnect (GstPad *pad, GstCaps *caps)
 {
   GstAASink *aasink;
-  gulong print_format;
 
   aasink = GST_AASINK (gst_pad_get_parent (pad));
 
@@ -249,9 +244,10 @@ gst_aasink_sinkconnect (GstPad *pad, GstCaps *caps)
   gst_caps_get_int (caps, "width", &aasink->width);
   gst_caps_get_int (caps, "height", &aasink->height);
 
-  print_format = GULONG_FROM_LE (aasink->format);
+  /* FIXME aasink->format is never set */
 
-  GST_DEBUG (0, "aasink: setting %08lx (%4.4s)", aasink->format, (gchar*)&print_format);
+  GST_DEBUG (0, "aasink: setting %08lx (" GST_FOURCC_FORMAT ")",
+		 aasink->format, GST_FOURCC_ARGS(aasink->format));
   
   g_signal_emit( G_OBJECT (aasink), gst_aasink_signals[SIGNAL_HAVE_SIZE], 0,
 		 aasink->width, aasink->height);
@@ -350,7 +346,7 @@ gst_aasink_chain (GstPad *pad, GstBuffer *buf)
   		    aa_imgwidth (aasink->context),	/* dw */
   		    aa_imgheight (aasink->context));	/* dh */
 
-  GST_DEBUG (0,"videosink: clock wait: %llu", GST_BUFFER_TIMESTAMP(buf));
+  GST_DEBUG (0,"videosink: clock wait: %" G_GUINT64_FORMAT, GST_BUFFER_TIMESTAMP(buf));
 
   if (aasink->clock) {
     GstClockID id = gst_clock_new_single_shot_id (aasink->clock, GST_BUFFER_TIMESTAMP(buf));
