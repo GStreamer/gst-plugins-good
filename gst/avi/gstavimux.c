@@ -442,9 +442,9 @@ done:
 }
 
 static void
-gst_avimux_pad_connect (GstPad   *pad,
-                        GstPad   *peer,
-                        gpointer  data)
+gst_avimux_pad_link (GstPad   *pad,
+                     GstPad   *peer,
+                     pointer  data)
 {
   GstAviMux *avimux = GST_AVIMUX(data);
   const gchar *padname = gst_pad_get_name (pad);
