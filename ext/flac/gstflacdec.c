@@ -433,20 +433,22 @@ gst_flacdec_write (const FLAC__SeekableStreamDecoder *decoder,
       flacdec->total_samples = flacdec->seek_value;
     }
 
-    GST_DEBUG (0, "send discont");
+    if (GST_PAD_IS_USABLE (flacdec->srcpad)) {
+      GST_DEBUG (0, "send discont");
 
-    format = GST_FORMAT_TIME;
-    gst_pad_convert (flacdec->srcpad, GST_FORMAT_UNITS, flacdec->total_samples,
-		  &format, &time);
-    format = GST_FORMAT_BYTES;
-    gst_pad_convert (flacdec->srcpad, GST_FORMAT_UNITS, flacdec->total_samples,
-		  &format, &bytes);
-    discont = gst_event_new_discontinuous (FALSE, GST_FORMAT_TIME, time,
+      format = GST_FORMAT_TIME;
+      gst_pad_convert (flacdec->srcpad, GST_FORMAT_UNITS,
+                       flacdec->total_samples, &format, &time);
+      format = GST_FORMAT_BYTES;
+      gst_pad_convert (flacdec->srcpad, GST_FORMAT_UNITS,
+                       flacdec->total_samples, &format, &bytes);
+      discont = gst_event_new_discontinuous (FALSE, GST_FORMAT_TIME, time,
 		                         GST_FORMAT_BYTES, bytes,
 		                         GST_FORMAT_UNITS, flacdec->total_samples, 
 					 NULL);
 	  
-    gst_pad_push (flacdec->srcpad, GST_BUFFER (discont));
+      gst_pad_push (flacdec->srcpad, GST_BUFFER (discont));
+    }
   }
   
   if (!GST_PAD_CAPS (flacdec->srcpad)) {
@@ -469,37 +471,37 @@ gst_flacdec_write (const FLAC__SeekableStreamDecoder *decoder,
     flacdec->frequency = frame->header.sample_rate;
   }
 
-  outbuf = gst_buffer_new ();
-  GST_BUFFER_SIZE (outbuf) = samples * channels * ((depth+7)>>3);
-  GST_BUFFER_DATA (outbuf) = g_malloc (GST_BUFFER_SIZE (outbuf));
-  GST_BUFFER_TIMESTAMP (outbuf) = flacdec->total_samples * GST_SECOND / frame->header.sample_rate;
-
-  if (depth == 8) {
-    guint8 *outbuffer = (guint8 *)GST_BUFFER_DATA (outbuf);
-
-    for (i=0; i<samples; i++) {
-      for (j=0; j < channels; j++) {
-        *outbuffer++ = (guint8) buffer[j][i];
+  if (GST_PAD_IS_USABLE (flacdec->srcpad)) {
+    outbuf = gst_buffer_new ();
+    GST_BUFFER_SIZE (outbuf) = samples * channels * ((depth+7)>>3);
+    GST_BUFFER_DATA (outbuf) = g_malloc (GST_BUFFER_SIZE (outbuf));
+    GST_BUFFER_TIMESTAMP (outbuf) = flacdec->total_samples * GST_SECOND / frame->header.sample_rate;
+  
+    if (depth == 8) {
+      guint8 *outbuffer = (guint8 *)GST_BUFFER_DATA (outbuf);
+  
+      for (i=0; i<samples; i++) {
+        for (j=0; j < channels; j++) {
+          *outbuffer++ = (guint8) buffer[j][i];
+        }
       }
     }
-  }
-  else if (depth == 16) {
-    guint16 *outbuffer = (guint16 *)GST_BUFFER_DATA (outbuf);
-
-    for (i=0; i<samples; i++) {
-      for (j=0; j < channels; j++) {
-        *outbuffer++ = (guint16) buffer[j][i];
+    else if (depth == 16) {
+      guint16 *outbuffer = (guint16 *)GST_BUFFER_DATA (outbuf);
+  
+      for (i=0; i<samples; i++) {
+        for (j=0; j < channels; j++) {
+          *outbuffer++ = (guint16) buffer[j][i];
+        }
       }
     }
+    else {
+      g_warning ("flacdec: invalid depth %d found\n", depth);
+      return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
+    }
+    gst_pad_push (flacdec->srcpad, outbuf);
   }
-  else {
-    g_warning ("flacdec: invalid depth %d found\n", depth);
-    return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
-  }
-
   flacdec->total_samples += samples;
-
-  gst_pad_push (flacdec->srcpad, outbuf);
 
   return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }
@@ -548,8 +550,10 @@ gst_flacdec_loop (GstElement *element)
     FLAC__seekable_stream_decoder_finish(flacdec->decoder);
     flacdec->init = TRUE;
 
-    event = gst_event_new (GST_EVENT_EOS);
-    gst_pad_push (flacdec->srcpad, GST_BUFFER (event));
+    if (GST_PAD_IS_USABLE (flacdec->srcpad)) {
+      event = gst_event_new (GST_EVENT_EOS);
+      gst_pad_push (flacdec->srcpad, GST_BUFFER (event));
+    }
     gst_element_set_eos (element);
   }
    GST_DEBUG (GST_CAT_PLUGIN_INFO, "flacdec: _loop end");
