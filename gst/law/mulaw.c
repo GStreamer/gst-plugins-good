@@ -4,37 +4,26 @@
 #include "mulaw-encode.h"
 #include "mulaw-decode.h"
 
-static GstCaps*
+static GstCaps2*
 mulaw_factory (void)
 {
-  return
-    gst_caps_new (
-  	"test_src",
-    	"audio/x-mulaw",
-	gst_props_new (
-    	    "width",    GST_PROPS_INT(8),
-    	    "depth",    GST_PROPS_INT(8),
-    	    "signed",   GST_PROPS_BOOLEAN(FALSE),
-    	    "rate",     GST_PROPS_INT_RANGE (8000, 192000),
-            "channels", GST_PROPS_INT_RANGE (1, 2),
-	    NULL));
+  return gst_caps2_new_simple ("audio/x-mulaw",
+      "rate",     GST_TYPE_INT_RANGE, 8000, 192000,
+      "channels", GST_TYPE_INT_RANGE, 1, 2,
+      NULL);
 }
 
-static GstCaps*
+static GstCaps2*
 linear_factory (void)
 {
-  return
-    gst_caps_new (
-  	"test_sink",
-    	"audio/x-raw-int",
-	gst_props_new (
-      	    "width",      GST_PROPS_INT(16),
-      	    "depth",      GST_PROPS_INT(16),
-      	    "signed",     GST_PROPS_BOOLEAN(TRUE),
-      	    "endianness", GST_PROPS_INT(G_BYTE_ORDER),
-    	    "rate",       GST_PROPS_INT_RANGE (8000, 192000),
-            "channels",   GST_PROPS_INT_RANGE (1, 2),
-	    NULL));
+  return gst_caps2_new_simple ("audio/x-raw-int",
+      "width",      G_TYPE_INT, 16,
+      "depth",      G_TYPE_INT, 16,
+      "endianness", G_TYPE_INT, G_BYTE_ORDER,
+      "signed",     G_TYPE_BOOLEAN, TRUE,
+      "rate",       GST_TYPE_INT_RANGE, 8000, 192000,
+      "channels",   GST_TYPE_INT_RANGE, 1, 2,
+      NULL);
 }
 
 GstPadTemplate *mulawenc_src_template, *mulawenc_sink_template;
@@ -43,7 +32,7 @@ GstPadTemplate *mulawdec_src_template, *mulawdec_sink_template;
 static gboolean
 plugin_init (GstPlugin *plugin)
 {
-  GstCaps* mulaw_caps, *linear_caps;
+  GstCaps2* mulaw_caps, *linear_caps;
 
   mulaw_caps = mulaw_factory ();
   linear_caps = linear_factory ();
