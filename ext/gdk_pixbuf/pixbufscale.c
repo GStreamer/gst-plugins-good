@@ -361,9 +361,6 @@ pixbufscale_scale (GstPixbufScale * scale, unsigned char *dest,
       (double) scale->to_width / scale->from_width,
       (double) scale->to_height / scale->from_height, scale->gdk_method);
 
-  dest_pixbuf = gdk_pixbuf_scale_simple
-      (src_pixbuf, scale->to_width, scale->to_height, scale->gdk_method);
-
   g_object_unref (src_pixbuf);
   g_object_unref (dest_pixbuf);
 }
