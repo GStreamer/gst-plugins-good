@@ -6,12 +6,14 @@ man_MANS = \
 	gst-launch-ext-@GST_MAJORMINOR@.1 \
 	gst-visualise-@GST_MAJORMINOR@.1
 
-CLEANFILES = $(manpages)
+CLEANFILES = $(man_MANS)
 
-EXTRA_DIST = gst-launch-ext.1.in gst-visualise.1.in
+EXTRA_DIST = \
+	gst-launch-ext-0.6 gst-visualise-0.6 \
+	gst-launch-ext.1.in gst-visualise.1.in
 
 %-@GST_MAJORMINOR@.1: %.1.in
-        sed \
+	sed \
                 -e s,gst-complete,gst-complete-@GST_MAJORMINOR@,g \
                 -e s,gst-compprep,gst-compprep-@GST_MAJORMINOR@,g \
                 -e s,gst-feedback,gst-feedback-@GST_MAJORMINOR@,g \
