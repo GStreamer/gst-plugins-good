@@ -462,7 +462,7 @@ gst_osssink_chain (GstPad *pad, GstBuffer *buf)
     if (!osssink->mute) {
       guchar *data = GST_BUFFER_DATA (buf);
       gint size = GST_BUFFER_SIZE (buf);
-      gint frag = osssink->fragment;
+      /*gint frag = osssink->fragment;*/
 
       if (osssink->clock) {
         /* FIXME, NEW_MEDIA/DISCONT?. Try to get our start point */
