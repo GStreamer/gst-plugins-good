@@ -621,7 +621,7 @@ gst_avi_demux_parse_avih (GstElement * element,
   gst_riff_avih *avih;
 
   if (!buf || GST_BUFFER_SIZE (buf) < sizeof (gst_riff_avih)) {
-    GST_ELEMENT_ERROR (element, STREAM, INVALID_DATA, (NULL),
+    GST_ELEMENT_ERROR (element, STREAM, DEMUX, (NULL),
         ("Too small avih (%d available, %d needed)",
             GST_BUFFER_SIZE (buf), (int) sizeof (gst_riff_avih)));
     if (buf)
@@ -1754,7 +1754,7 @@ gst_avi_demux_stream_header (GstAviDemux * avi)
               &avi->offset, &tag, &buf)) != GST_FLOW_OK)
     return res;
   else if (tag != GST_RIFF_TAG_LIST) {
-    GST_ELEMENT_ERROR (avi, STREAM, INVALID_DATA, (NULL),
+    GST_ELEMENT_ERROR (avi, STREAM, DEMUX, (NULL),
         ("Invalid AVI header (no LIST at start): "
             GST_FOURCC_FORMAT, GST_FOURCC_ARGS (tag)));
     return GST_FLOW_ERROR;
