@@ -481,10 +481,15 @@ gst_flacenc_chain (GstPad *pad, GstBuffer *buf)
 
   if (GST_IS_EVENT (buf)) {
     GstEvent *event = GST_EVENT (buf);
+    GstEvent *eos_event;
 
     switch (GST_EVENT_TYPE (event)) {
       case GST_EVENT_EOS:
-	FLAC__seekable_stream_encoder_finish(flacenc->encoder);
+        FLAC__seekable_stream_encoder_finish (flacenc->encoder);
+        eos_event = gst_event_new (GST_EVENT_EOS);
+        gst_pad_push (flacenc->srcpad, GST_BUFFER (eos_event));
+        gst_element_set_eos (GST_ELEMENT (flacenc));
+        break;
       default:
 	gst_pad_event_default (pad, event);
         break;
