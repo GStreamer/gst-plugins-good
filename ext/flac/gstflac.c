@@ -70,12 +70,30 @@ static GstTypeDefinition flacdefinition = {
 static GstCaps* 
 flac_type_find (GstBuffer *buf, gpointer private) 
 {
+  gint offset;
+  guint8 *data;
+  gint size;
   guint32 head = GUINT32_FROM_BE (*((guint32 *)GST_BUFFER_DATA (buf)));
 
-  if (head  != 0x664C6143)
-    return NULL;
+  data = GST_BUFFER_DATA (buf);
+  size = GST_BUFFER_SIZE (buf);
 
-  return gst_caps_new ("flac_type_find", "application/x-flac", NULL);
+  if (head  == 0x664C6143)
+    return gst_caps_new ("flac_type_find", "application/x-flac", NULL);
+  else {
+    /* checks for existance of flac identification header in case
+     * there's an ID3 tag */
+    for (offset = 0; offset < size-4; offset++) {
+      if (data[offset]   == 'f' && 
+          data[offset+1] == 'L' && 
+          data[offset+2] == 'a' &&
+          data[offset+3] == 'C' ) {
+        return gst_caps_new ("flac_type_find", "application/x-flac", NULL);
+      }
+    }
+  }
+
+  return NULL;
 }
 
 
