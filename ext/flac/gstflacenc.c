@@ -23,6 +23,8 @@
 
 #include <gstflacenc.h>
 
+#include "flac_compat.h"
+
 extern GstPadTemplate *gst_flacenc_src_template, *gst_flacenc_sink_template;
 
 /* elementfactory information */
@@ -327,14 +329,14 @@ gst_flacenc_update_quality (FlacEnc *flacenc, gint quality)
   flacenc->quality = quality;
 
 #define DO_UPDATE(name, val, str) 	                    	\
-G_STMT_START{                                                   \
-  if (FLAC__stream_encoder_get_##name (flacenc->encoder) != 	\
-      flacenc_params[quality].##val) {        			\
-    FLAC__stream_encoder_set_##name (flacenc->encoder, 		\
-      flacenc_params[quality].##val);				\
-    g_object_notify (G_OBJECT (flacenc), str);                  \
-  };                                                            \
-} G_STMT_END
+  G_STMT_START {                                                \
+    if (FLAC__stream_encoder_get_##name (flacenc->encoder) != 	\
+        flacenc_params[quality].val) {        			\
+      FLAC__stream_encoder_set_##name (flacenc->encoder, 	\
+          flacenc_params[quality].val);				\
+      g_object_notify (G_OBJECT (flacenc), str);                \
+    }                                                           \
+  } G_STMT_END
 
   g_object_freeze_notify (G_OBJECT (flacenc));
 
