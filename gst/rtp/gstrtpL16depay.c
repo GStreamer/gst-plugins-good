@@ -170,11 +170,11 @@ gst_rtpL16parse_ntohs (GstBuffer *buf)
 void
 gst_rtpL16_caps_nego (GstRtpL16Parse *rtpL16parse)
 {
-  GstCaps2 *caps;
+  GstCaps *caps;
 
-  caps = gst_caps2_copy(gst_static_caps2_get (&gst_rtpL16parse_src_template.static_caps));
+  caps = gst_caps_copy(gst_static_caps_get (&gst_rtpL16parse_src_template.static_caps));
 
-  gst_caps2_set_simple (caps,
+  gst_caps_set_simple (caps,
       "rate", G_TYPE_INT, rtpL16parse->frequency,
       "channel", G_TYPE_INT, rtpL16parse->channels, NULL);
 

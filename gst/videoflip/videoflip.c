@@ -71,7 +71,7 @@ videoflip_get_cap(struct videoflip_format_struct *format)
 }
 
 struct videoflip_format_struct *
-videoflip_find_by_caps(const GstCaps2 *caps)
+videoflip_find_by_caps(const GstCaps *caps)
 {
   int i;
 
@@ -80,15 +80,15 @@ videoflip_find_by_caps(const GstCaps2 *caps)
   g_return_val_if_fail(caps != NULL, NULL);
 
   for (i = 0; i < videoflip_n_formats; i++){
-    GstCaps2 *c;
+    GstCaps *c;
 
-    c = gst_caps2_new_full (videoflip_get_cap (videoflip_formats + i), NULL);
+    c = gst_caps_new_full (videoflip_get_cap (videoflip_formats + i), NULL);
     if(c){
-      if(gst_caps2_is_always_compatible(caps, c)){
-        gst_caps2_free(c);
+      if(gst_caps_is_always_compatible(caps, c)){
+        gst_caps_free(c);
         return videoflip_formats + i;
       }
-      gst_caps2_free(c);
+      gst_caps_free(c);
     }
   }
 

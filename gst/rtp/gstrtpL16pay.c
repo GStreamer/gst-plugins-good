@@ -75,7 +75,7 @@ static void gst_rtpL16enc_set_property (GObject * object, guint prop_id,
 				   const GValue * value, GParamSpec * pspec);
 static void gst_rtpL16enc_get_property (GObject * object, guint prop_id,
 				   GValue * value, GParamSpec * pspec);
-static GstPadLinkReturn gst_rtpL16enc_sinkconnect (GstPad * pad, const GstCaps2 * caps);
+static GstPadLinkReturn gst_rtpL16enc_sinkconnect (GstPad * pad, const GstCaps * caps);
 static GstElementStateReturn gst_rtpL16enc_change_state (GstElement * element);
 
 static GstElementClass *parent_class = NULL;
@@ -154,7 +154,7 @@ gst_rtpL16enc_init (GstRtpL16Enc * rtpL16enc)
 }
 
 static GstPadLinkReturn
-gst_rtpL16enc_sinkconnect (GstPad * pad, const GstCaps2 * caps)
+gst_rtpL16enc_sinkconnect (GstPad * pad, const GstCaps * caps)
 {
   GstRtpL16Enc *rtpL16enc;
   GstStructure *structure;
@@ -162,7 +162,7 @@ gst_rtpL16enc_sinkconnect (GstPad * pad, const GstCaps2 * caps)
 
   rtpL16enc = GST_RTP_L16_ENC (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   ret = gst_structure_get_int (structure, "rate", &rtpL16enc->frequency);
   ret &= gst_structure_get_int (structure, "channels", &rtpL16enc->channels);

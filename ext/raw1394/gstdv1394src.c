@@ -248,7 +248,7 @@ int gst_dv1394src_iso_receive(raw1394handle_t handle,int channel,size_t len,quad
               dv1394src->frameSize = PAL_FRAMESIZE;
               GST_DEBUG ("PAL data");
               if (gst_pad_try_set_caps (dv1394src->srcpad, 
-                    gst_caps2_new_simple ("video/dv",
+                    gst_caps_new_simple ("video/dv",
                       "format", G_TYPE_STRING, "PAL", NULL)) <= 0) {
 		gst_element_error (GST_ELEMENT(dv1394src), "Could not set source caps for PAL");
                 return 0;
@@ -258,7 +258,7 @@ int gst_dv1394src_iso_receive(raw1394handle_t handle,int channel,size_t len,quad
               dv1394src->frameSize = NTSC_FRAMESIZE;
               GST_DEBUG ("NTSC data [untested] - please report success/failure to <dan@f3c.com>");
               if (gst_pad_try_set_caps (dv1394src->srcpad, 
-                    gst_caps2_new_simple ("video/dv",
+                    gst_caps_new_simple ("video/dv",
                       "format", G_TYPE_STRING, "NTSC", NULL)) <= 0) {
                 gst_element_error (GST_ELEMENT(dv1394src), "Could not set source caps for NTSC");
                 return 0;

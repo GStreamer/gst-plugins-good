@@ -280,7 +280,7 @@ gst_avimux_init (GstAviMux *avimux)
 }
 
 static GstPadLinkReturn
-gst_avimux_vidsinkconnect (GstPad *pad, const GstCaps2 *vscaps)
+gst_avimux_vidsinkconnect (GstPad *pad, const GstCaps *vscaps)
 {
   GstAviMux *avimux;
   GstStructure *structure;
@@ -293,7 +293,7 @@ gst_avimux_vidsinkconnect (GstPad *pad, const GstCaps2 *vscaps)
   GST_DEBUG ("avimux: video sinkconnect triggered on %s",
 	     gst_pad_get_name (pad));
 
-  structure = gst_caps2_get_nth_cap (vscaps, 0);
+  structure = gst_caps_get_structure (vscaps, 0);
   mimetype = gst_structure_get_name (structure);
 
   /* global */
@@ -384,7 +384,7 @@ gst_avimux_vidsinkconnect (GstPad *pad, const GstCaps2 *vscaps)
 }
 
 static GstPadLinkReturn
-gst_avimux_audsinkconnect (GstPad *pad, const GstCaps2 *vscaps)
+gst_avimux_audsinkconnect (GstPad *pad, const GstCaps *vscaps)
 {
   GstAviMux *avimux;
   GstStructure *structure;
@@ -396,7 +396,7 @@ gst_avimux_audsinkconnect (GstPad *pad, const GstCaps2 *vscaps)
   GST_DEBUG ("avimux: audio sinkconnect triggered on %s",
 	     gst_pad_get_name (pad));
 
-  structure = gst_caps2_get_nth_cap (vscaps, 0);
+  structure = gst_caps_get_structure (vscaps, 0);
   mimetype = gst_structure_get_name (structure);
 
   /* we want these for all */

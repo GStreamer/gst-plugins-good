@@ -55,7 +55,7 @@ GST_STATIC_PAD_TEMPLATE (
   "video_%d",
   GST_PAD_SINK,
   GST_PAD_REQUEST,
-  GST_STATIC_CAPS2_ANY
+  GST_STATIC_CAPS_ANY
 );
 
 static GstStaticPadTemplate audiosink_templ =
@@ -63,7 +63,7 @@ GST_STATIC_PAD_TEMPLATE (
   "audio_%d",
   GST_PAD_SINK,
   GST_PAD_REQUEST,
-  GST_STATIC_CAPS2_ANY
+  GST_STATIC_CAPS_ANY
 );
 
 static GstStaticPadTemplate subtitlesink_templ =
@@ -71,7 +71,7 @@ GST_STATIC_PAD_TEMPLATE (
   "subtitle_%d",
   GST_PAD_SINK,
   GST_PAD_REQUEST,
-  GST_STATIC_CAPS2_ANY
+  GST_STATIC_CAPS_ANY
 );
 
 /* gobject magic foo */
@@ -168,7 +168,7 @@ gst_matroska_mux_class_init (GstMatroskaMuxClass *klass)
 
   g_object_class_install_property (gobject_class, ARG_METADATA,
     g_param_spec_boxed ("metadata", "Metadata", "Metadata",
-                        GST_TYPE_CAPS2, G_PARAM_READWRITE));
+                        GST_TYPE_CAPS, G_PARAM_READWRITE));
 
   parent_class = g_type_class_ref (GST_TYPE_EBML_WRITE);
 
@@ -239,8 +239,8 @@ gst_matroska_mux_reset (GstElement *element)
   mux->num_v_streams = 0;
 
   /* reset media info  (to default) */
-  gst_caps2_replace (&mux->metadata,
-      gst_caps2_new_simple ("application/x-gst-metadata",
+  gst_caps_replace (&mux->metadata,
+      gst_caps_new_simple ("application/x-gst-metadata",
         "application", G_TYPE_STRING, "",
         "date",        G_TYPE_STRING, "", NULL));
 
@@ -255,7 +255,7 @@ gst_matroska_mux_reset (GstElement *element)
 }
 
 static GstPadLinkReturn
-gst_matroska_mux_video_pad_link (GstPad  *pad, const GstCaps2 *caps)
+gst_matroska_mux_video_pad_link (GstPad  *pad, const GstCaps *caps)
 {
   GstMatroskaTrackContext *context = NULL;
   GstMatroskaTrackVideoContext *videocontext;
@@ -279,7 +279,7 @@ gst_matroska_mux_video_pad_link (GstPad  *pad, const GstCaps2 *caps)
   videocontext = (GstMatroskaTrackVideoContext *) context;
 
   /* gst -> matroska ID'ing */
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   mimetype = gst_structure_get_name (structure);
 
@@ -373,7 +373,7 @@ gst_matroska_mux_video_pad_link (GstPad  *pad, const GstCaps2 *caps)
 
 static GstPadLinkReturn
 gst_matroska_mux_audio_pad_link (GstPad  *pad,
-				 const GstCaps2 *caps)
+				 const GstCaps *caps)
 {
   GstMatroskaTrackContext *context = NULL;
   GstMatroskaTrackAudioContext *audiocontext;
@@ -394,7 +394,7 @@ gst_matroska_mux_audio_pad_link (GstPad  *pad,
   g_assert (context->type == GST_MATROSKA_TRACK_TYPE_AUDIO);
   audiocontext = (GstMatroskaTrackAudioContext *) context;
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   mimetype = gst_structure_get_name (structure);
 
   /* general setup */
@@ -472,7 +472,7 @@ gst_matroska_mux_audio_pad_link (GstPad  *pad,
 
 static GstPadLinkReturn
 gst_matroska_mux_subtitle_pad_link (GstPad  *pad,
-				    const GstCaps2 *caps)
+				    const GstCaps *caps)
 {
   /* Consider this as boilerplate code for now. There is
    * no single subtitle creation element in GStreamer,
@@ -659,11 +659,11 @@ gst_matroska_mux_start (GstMatroskaMux *mux)
   gst_ebml_write_float (ebml, GST_MATROSKA_ID_DURATION, 0);
   gst_ebml_write_utf8 (ebml, GST_MATROSKA_ID_MUXINGAPP, "GStreamer");
   if (mux->metadata &&
-      gst_structure_has_field (gst_caps2_get_nth_cap(mux->metadata,0),
+      gst_structure_has_field (gst_caps_get_structure(mux->metadata,0),
         "application")) {
     const gchar *app;
 
-    app = gst_structure_get_string (gst_caps2_get_nth_cap(mux->metadata, 0),
+    app = gst_structure_get_string (gst_caps_get_structure(mux->metadata, 0),
         "application");
     if (app && app[0]) {
       gst_ebml_write_utf8 (ebml, GST_MATROSKA_ID_WRITINGAPP, app);
@@ -911,7 +911,7 @@ gst_matroska_mux_set_property (GObject      *object,
 
   switch (prop_id) {
     case ARG_METADATA:
-      gst_caps2_replace (&mux->metadata,
+      gst_caps_replace (&mux->metadata,
 			g_value_get_boxed (value));
       break;
     default:

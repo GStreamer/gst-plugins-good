@@ -112,8 +112,8 @@ static GstElementStateReturn
 
 static void		gst_goom_chain		(GstPad *pad, GstData *_data);
 
-static GstPadLinkReturn gst_goom_sinkconnect 	(GstPad *pad, const GstCaps2 *caps);
-static GstPadLinkReturn gst_goom_srcconnect 	(GstPad *pad, const GstCaps2 *caps);
+static GstPadLinkReturn gst_goom_sinkconnect 	(GstPad *pad, const GstCaps *caps);
+static GstPadLinkReturn gst_goom_srcconnect 	(GstPad *pad, const GstCaps *caps);
 
 static GstElementClass *parent_class = NULL;
 
@@ -202,14 +202,14 @@ gst_goom_dispose (GObject *object)
 }
 
 static GstPadLinkReturn
-gst_goom_sinkconnect (GstPad *pad, const GstCaps2 *caps)
+gst_goom_sinkconnect (GstPad *pad, const GstCaps *caps)
 {
   GstGOOM *goom;
   GstStructure *structure;
 
   goom = GST_GOOM (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int (structure, "channels", &goom->channels);
 
@@ -217,14 +217,14 @@ gst_goom_sinkconnect (GstPad *pad, const GstCaps2 *caps)
 }
 
 static GstPadLinkReturn
-gst_goom_srcconnect (GstPad *pad, const GstCaps2 *caps)
+gst_goom_srcconnect (GstPad *pad, const GstCaps *caps)
 {
   GstGOOM *goom;
   GstStructure *structure;
 
   goom = GST_GOOM (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int (structure, "width", &goom->width);
   gst_structure_get_int (structure, "height", &goom->height);

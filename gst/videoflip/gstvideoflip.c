@@ -55,7 +55,7 @@ static void	gst_videoflip_set_property		(GObject *object, guint prop_id, const G
 static void	gst_videoflip_get_property		(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 
 static void	gst_videoflip_chain		(GstPad *pad, GstData *_data);
-static GstCaps2 * gst_videoflip_get_capslist(void);
+static GstCaps * gst_videoflip_get_capslist(void);
 
 
 static GstElementClass *parent_class = NULL;
@@ -88,12 +88,12 @@ static GstPadTemplate *
 gst_videoflip_src_template_factory(void)
 {
   /* well, actually RGB too, but since there's no RGB format anyway */
-  GstCaps2 *caps = gst_caps2_from_string ("video/x-raw-yuv, "
+  GstCaps *caps = gst_caps_from_string ("video/x-raw-yuv, "
 	      "width = (int) [ 0, MAX ], "
 	      "height = (int) [ 0, MAX ], "
 	      "framerate = (double) [ 0, MAX ]");
 
-  caps = gst_caps2_intersect(caps, gst_videoflip_get_capslist ());
+  caps = gst_caps_intersect(caps, gst_videoflip_get_capslist ());
 
   return gst_pad_template_new ("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
 }
@@ -101,12 +101,12 @@ gst_videoflip_src_template_factory(void)
 static GstPadTemplate *
 gst_videoflip_sink_template_factory(void)
 {
-  GstCaps2 *caps = gst_caps2_from_string ("video/x-raw-yuv, "
+  GstCaps *caps = gst_caps_from_string ("video/x-raw-yuv, "
 	      "width = (int) [ 0, MAX ], "
 	      "height = (int) [ 0, MAX ], "
 	      "framerate = (double) [ 0, MAX ]");
 
-  caps = gst_caps2_intersect(caps, gst_videoflip_get_capslist ());
+  caps = gst_caps_intersect(caps, gst_videoflip_get_capslist ());
 
   return gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
 }
@@ -166,30 +166,30 @@ gst_videoflip_class_init (GstVideoflipClass *klass)
 
 }
 
-static GstCaps2 *
+static GstCaps *
 gst_videoflip_get_capslist(void)
 {
-  GstCaps2 *caps;
+  GstCaps *caps;
   GstStructure *structure;
   int i;
 
-  caps = gst_caps2_new_empty ();
+  caps = gst_caps_new_empty ();
   for(i=0;i<videoflip_n_formats;i++){
     structure = videoflip_get_cap (videoflip_formats + i);
-    gst_caps2_append_cap (caps, structure);
+    gst_caps_append_structure (caps, structure);
   }
 
   return caps;
 }
 
-static GstCaps2 *
+static GstCaps *
 gst_videoflip_sink_getcaps (GstPad *pad)
 {
   GstVideoflip *videoflip;
-  GstCaps2 *capslist = NULL;
-  GstCaps2 *peercaps;
-  GstCaps2 *sizecaps;
-  GstCaps2 *caps;
+  GstCaps *capslist = NULL;
+  GstCaps *peercaps;
+  GstCaps *sizecaps;
+  GstCaps *caps;
   int i;
 
   GST_DEBUG ("gst_videoflip_sink_getcaps");
@@ -207,28 +207,28 @@ gst_videoflip_sink_getcaps (GstPad *pad)
   /* Look through our list of caps and find those that match with
    * the peer's formats.  Create a list of them. */
   for(i=0;i<videoflip_n_formats;i++){
-    GstCaps2 *fromcaps = gst_caps2_new_full(videoflip_get_cap(
+    GstCaps *fromcaps = gst_caps_new_full(videoflip_get_cap(
 	  videoflip_formats + i), NULL);
-    if(gst_caps2_is_always_compatible(fromcaps, peercaps)){
-      gst_caps2_append(capslist, fromcaps);
+    if(gst_caps_is_always_compatible(fromcaps, peercaps)){
+      gst_caps_append(capslist, fromcaps);
     }
   }
-  gst_caps2_free (peercaps);
+  gst_caps_free (peercaps);
 
-  sizecaps = gst_caps2_from_string ("video/x-raw-yuv, "
+  sizecaps = gst_caps_from_string ("video/x-raw-yuv, "
 	      "width = (int) [ 0, MAX ], "
 	      "height = (int) [ 0, MAX ], "
 	      "framerate = (double) [ 0, MAX ]");
 
-  caps = gst_caps2_intersect(capslist, sizecaps);
-  gst_caps2_free (sizecaps);
+  caps = gst_caps_intersect(capslist, sizecaps);
+  gst_caps_free (sizecaps);
 
   return caps;
 }
 
 
 static GstPadLinkReturn
-gst_videoflip_src_link (GstPad *pad, const GstCaps2 *caps)
+gst_videoflip_src_link (GstPad *pad, const GstCaps *caps)
 {
   GstVideoflip *videoflip;
   GstStructure *structure;
@@ -237,7 +237,7 @@ gst_videoflip_src_link (GstPad *pad, const GstCaps2 *caps)
   GST_DEBUG ("gst_videoflip_src_link");
   videoflip = GST_VIDEOFLIP (gst_pad_get_parent (pad));
   
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   videoflip->format = videoflip_find_by_caps (caps);
   g_return_val_if_fail(videoflip->format, GST_PAD_LINK_REFUSED);
@@ -251,7 +251,7 @@ gst_videoflip_src_link (GstPad *pad, const GstCaps2 *caps)
 }
 
 static GstPadLinkReturn
-gst_videoflip_sink_link (GstPad *pad, const GstCaps2 *caps)
+gst_videoflip_sink_link (GstPad *pad, const GstCaps *caps)
 {
   GstVideoflip *videoflip;
   GstStructure *structure;
@@ -260,7 +260,7 @@ gst_videoflip_sink_link (GstPad *pad, const GstCaps2 *caps)
   GST_DEBUG ("gst_videoflip_sink_link");
   videoflip = GST_VIDEOFLIP (gst_pad_get_parent (pad));
   
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   videoflip->format = videoflip_find_by_caps (caps);
   g_return_val_if_fail(videoflip->format, GST_PAD_LINK_REFUSED);

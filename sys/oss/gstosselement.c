@@ -486,12 +486,12 @@ gst_ossformat_get (gint law, gint endianness, gboolean sign, gint width, gint de
 }
 
 gboolean 
-gst_osselement_parse_caps (GstOssElement *oss, const GstCaps2 *caps) 
+gst_osselement_parse_caps (GstOssElement *oss, const GstCaps *caps) 
 {
   gint bps, format;
   GstStructure *structure;
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int  (structure, "width", &oss->width);
   gst_structure_get_int  (structure, "depth", &oss->depth);
@@ -531,12 +531,12 @@ G_STMT_START {                                  \
 } G_STMT_END
 
 gboolean 
-gst_osselement_merge_fixed_caps (GstOssElement *oss, GstCaps2 *caps) 
+gst_osselement_merge_fixed_caps (GstOssElement *oss, GstCaps *caps) 
 {
   gint bps, format;
   GstStructure *structure;
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   
   /* peel off fixed stuff from the caps */
   gst_structure_get_int (structure, "law",        &oss->law);

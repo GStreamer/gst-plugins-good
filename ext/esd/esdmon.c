@@ -258,7 +258,7 @@ gst_esdmon_get (GstPad *pad)
     /* set caps on src pad */
     /* FIXME: do this dynamically */
     if (gst_pad_try_set_caps (esdmon->srcpad,
-	gst_caps2_new_simple ("audio/x-raw-int",
+	gst_caps_new_simple ("audio/x-raw-int",
 	  "endianness", G_TYPE_INT,	G_BYTE_ORDER,
           "signed",     G_TYPE_BOOLEAN, sign,
           "width",      G_TYPE_INT,	esdmon->depth,

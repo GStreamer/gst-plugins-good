@@ -105,9 +105,9 @@ static void	gst_monoscope_init		(GstMonoscope *monoscope);
 static void	gst_monoscope_chain		(GstPad *pad, GstData *_data);
 
 static GstPadLinkReturn 
-		gst_monoscope_sinkconnect 	(GstPad *pad, const GstCaps2 *caps);
+		gst_monoscope_sinkconnect 	(GstPad *pad, const GstCaps *caps);
 static GstPadLinkReturn
-		gst_monoscope_srcconnect 	(GstPad *pad, const GstCaps2 *caps);
+		gst_monoscope_srcconnect 	(GstPad *pad, const GstCaps *caps);
 
 static GstElementClass *parent_class = NULL;
 
@@ -182,7 +182,7 @@ gst_monoscope_init (GstMonoscope *monoscope)
 }
 
 static GstPadLinkReturn
-gst_monoscope_sinkconnect (GstPad *pad, const GstCaps2 *caps)
+gst_monoscope_sinkconnect (GstPad *pad, const GstCaps *caps)
 {
   GstMonoscope *monoscope;
   monoscope = GST_MONOSCOPE (gst_pad_get_parent (pad));
@@ -193,9 +193,9 @@ gst_monoscope_sinkconnect (GstPad *pad, const GstCaps2 *caps)
 static GstPadLinkReturn
 gst_monoscope_negotiate (GstMonoscope *monoscope)
 {
-  GstCaps2 *caps;
+  GstCaps *caps;
 
-  caps = gst_caps2_new_simple ("video/x-raw-rgb",
+  caps = gst_caps_new_simple ("video/x-raw-rgb",
       "bpp", 		G_TYPE_INT, 32, 
       "depth", 	G_TYPE_INT, 32, 
       "endianness", 	G_TYPE_INT, G_BIG_ENDIAN, 
@@ -210,13 +210,13 @@ gst_monoscope_negotiate (GstMonoscope *monoscope)
 }
 
 static GstPadLinkReturn
-gst_monoscope_srcconnect (GstPad *pad, const GstCaps2 *caps)
+gst_monoscope_srcconnect (GstPad *pad, const GstCaps *caps)
 {
   GstPadLinkReturn ret;
   GstMonoscope *monoscope = GST_MONOSCOPE (gst_pad_get_parent (pad));
   GstStructure *structure;
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int (structure, "width", &monoscope->width);
   gst_structure_get_int (structure, "height", &monoscope->height);

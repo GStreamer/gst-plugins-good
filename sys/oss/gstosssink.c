@@ -58,7 +58,7 @@ static gboolean 		gst_osssink_query 		(GstElement *element, GstQueryType type,
 static gboolean 		gst_osssink_sink_query 		(GstPad *pad, GstQueryType type,
 								 GstFormat *format, gint64 *value);
 
-static GstPadLinkReturn		gst_osssink_sinkconnect		(GstPad *pad, const GstCaps2 *caps);
+static GstPadLinkReturn		gst_osssink_sinkconnect		(GstPad *pad, const GstCaps *caps);
 
 static void 			gst_osssink_set_property	(GObject *object, guint prop_id, const GValue *value, 
 		  						 GParamSpec *pspec);
@@ -215,7 +215,7 @@ gst_osssink_init (GstOssSink *osssink)
 
 
 static GstPadLinkReturn 
-gst_osssink_sinkconnect (GstPad *pad, const GstCaps2 *caps) 
+gst_osssink_sinkconnect (GstPad *pad, const GstCaps *caps) 
 {
   GstOssSink *osssink = GST_OSSSINK (gst_pad_get_parent (pad));
 

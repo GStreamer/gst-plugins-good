@@ -79,7 +79,7 @@ static void		gst_mikmod_class_init		(GstMikModClass *klass);
 static void		gst_mikmod_init			(GstMikMod *filter);
 static void		gst_mikmod_set_property 	(GObject *object, guint id, const GValue *value, GParamSpec *pspec );
 static void		gst_mikmod_get_property		(GObject *object, guint id, GValue *value, GParamSpec *pspec );
-static GstPadLinkReturn	gst_mikmod_srclink		(GstPad *pad, const GstCaps2 *caps);
+static GstPadLinkReturn	gst_mikmod_srclink		(GstPad *pad, const GstCaps *caps);
 static void             gst_mikmod_loop                 (GstElement *element);
 static gboolean		gst_mikmod_setup 		(GstMikMod *mikmod);
 static GstElementStateReturn  gst_mikmod_change_state 	(GstElement *element);
@@ -227,7 +227,7 @@ gst_mikmod_negotiate (GstMikMod *mikmod)
   }
 
   return gst_pad_try_set_caps (mikmod->srcpad,
-      gst_caps2_new_simple ( "audio/x-raw-int",
+      gst_caps_new_simple ( "audio/x-raw-int",
 	"endianness",  G_TYPE_INT, G_BYTE_ORDER,
 	"signed",      G_TYPE_BOOLEAN, sign,
 	"width",       G_TYPE_INT, width,
@@ -239,7 +239,7 @@ gst_mikmod_negotiate (GstMikMod *mikmod)
 
 
 static GstPadLinkReturn
-gst_mikmod_srclink (GstPad *pad, const GstCaps2 *caps)
+gst_mikmod_srclink (GstPad *pad, const GstCaps *caps)
 {
   GstMikMod *filter; 
   GstStructure *structure;
@@ -248,7 +248,7 @@ gst_mikmod_srclink (GstPad *pad, const GstCaps2 *caps)
 
   filter = GST_MIKMOD (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int (structure, "depth", &depth);
   filter->_16bit = (depth == 16);

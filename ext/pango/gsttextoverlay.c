@@ -213,21 +213,21 @@ render_text(GstTextOverlay *overlay)
 }
 
 /* static GstPadLinkReturn */
-/* gst_textoverlay_text_sinkconnect (GstPad *pad, GstCaps2 *caps) */
+/* gst_textoverlay_text_sinkconnect (GstPad *pad, GstCaps *caps) */
 /* { */
 /*     return GST_PAD_LINK_DONE; */
 /* } */
 
 
 static GstPadLinkReturn
-gst_textoverlay_video_sinkconnect(GstPad *pad, const GstCaps2 *caps)
+gst_textoverlay_video_sinkconnect(GstPad *pad, const GstCaps *caps)
 {
     GstTextOverlay *overlay;
     GstStructure *structure;
 
     overlay = GST_TEXTOVERLAY(gst_pad_get_parent(pad));
 
-    structure = gst_caps2_get_nth_cap (caps, 0);
+    structure = gst_caps_get_structure (caps, 0);
     overlay->width = overlay->height = 0;
     gst_structure_get_int (structure, "width", &overlay->width);
     gst_structure_get_int (structure, "height", &overlay->height);

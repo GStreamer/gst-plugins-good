@@ -52,7 +52,7 @@ static void			gst_speexenc_class_init	(GstSpeexEnc *klass);
 static void			gst_speexenc_init		(GstSpeexEnc *speexenc);
 
 static void			gst_speexenc_chain	(GstPad *pad,GstData *_data);
-static GstPadLinkReturn	gst_speexenc_sinkconnect 	(GstPad *pad, const GstCaps2 *caps);
+static GstPadLinkReturn	gst_speexenc_sinkconnect 	(GstPad *pad, const GstCaps *caps);
 
 static GstElementClass *parent_class = NULL;
 static guint gst_speexenc_signals[LAST_SIGNAL] = { 0 };
@@ -156,17 +156,17 @@ gst_speexenc_init (GstSpeexEnc *speexenc)
 }
 
 static GstPadLinkReturn
-gst_speexenc_sinkconnect (GstPad *pad, const GstCaps2 *caps)
+gst_speexenc_sinkconnect (GstPad *pad, const GstCaps *caps)
 {
   GstSpeexEnc *speexenc;
   GstStructure *structure;
 
   speexenc = GST_SPEEXENC (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   gst_structure_get_int (structure, "rate", &speexenc->rate);
   if (gst_pad_try_set_caps (speexenc->srcpad,
-        gst_caps2_new_simple ("audio/x-speex",
+        gst_caps_new_simple ("audio/x-speex",
           "rate",       G_TYPE_INT, speexenc->rate,
           "channels",   G_TYPE_INT, 1,
           NULL)))
@@ -205,7 +205,7 @@ gst_speexenc_chain (GstPad *pad, GstData *_data)
   if (!GST_PAD_CAPS (speexenc->srcpad)) {
 
     if (!gst_pad_try_set_caps (speexenc->srcpad,
-          gst_caps2_new_simple ("audio/x-speex",
+          gst_caps_new_simple ("audio/x-speex",
             "rate",     G_TYPE_INT, speexenc->rate,
             "channels", G_TYPE_INT, 1,
             NULL)))

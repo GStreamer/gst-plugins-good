@@ -114,7 +114,7 @@ typedef struct _GstAviDemux {
   guint64	 last_seek;
 
   /* info */
-  GstCaps2	*streaminfo;
+  GstCaps	*streaminfo;
 } GstAviDemux;
 
 typedef struct _GstAviDemuxClass {

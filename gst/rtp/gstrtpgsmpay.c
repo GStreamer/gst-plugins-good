@@ -72,7 +72,7 @@ static void gst_rtpgsmenc_set_property (GObject * object, guint prop_id,
 				   const GValue * value, GParamSpec * pspec);
 static void gst_rtpgsmenc_get_property (GObject * object, guint prop_id,
 				   GValue * value, GParamSpec * pspec);
-static GstPadLinkReturn gst_rtpgsmenc_sinkconnect (GstPad * pad, const GstCaps2 * caps);
+static GstPadLinkReturn gst_rtpgsmenc_sinkconnect (GstPad * pad, const GstCaps * caps);
 static GstElementStateReturn gst_rtpgsmenc_change_state (GstElement * element);
 
 static GstElementClass *parent_class = NULL;
@@ -150,7 +150,7 @@ gst_rtpgsmenc_init (GstRtpGSMEnc * rtpgsmenc)
 }
 
 static GstPadLinkReturn
-gst_rtpgsmenc_sinkconnect (GstPad * pad, const GstCaps2 * caps)
+gst_rtpgsmenc_sinkconnect (GstPad * pad, const GstCaps * caps)
 {
   GstRtpGSMEnc *rtpgsmenc;
   GstStructure *structure;
@@ -158,7 +158,7 @@ gst_rtpgsmenc_sinkconnect (GstPad * pad, const GstCaps2 * caps)
 
   rtpgsmenc = GST_RTP_GSM_ENC (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   ret = gst_structure_get_int (structure, "rate", &rtpgsmenc->frequency);
   if (!ret) return GST_PAD_LINK_REFUSED;

@@ -166,14 +166,14 @@ gst_agingtv_class_init (GstAgingTVClass * klass)
 }
 
 static GstPadLinkReturn
-gst_agingtv_sinkconnect (GstPad * pad, const GstCaps2 * caps)
+gst_agingtv_sinkconnect (GstPad * pad, const GstCaps * caps)
 {
   GstAgingTV *filter;
   GstStructure *structure;
 
   filter = GST_AGINGTV (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int (structure, "width", &filter->width);
   gst_structure_get_int (structure, "height", &filter->height);

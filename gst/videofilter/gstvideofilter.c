@@ -47,7 +47,7 @@ static void	gst_videofilter_set_property		(GObject *object, guint prop_id, const
 static void	gst_videofilter_get_property		(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 
 static void	gst_videofilter_chain		(GstPad *pad, GstData *_data);
-GstCaps2 * gst_videofilter_class_get_capslist(GstVideofilterClass *klass);
+GstCaps * gst_videofilter_class_get_capslist(GstVideofilterClass *klass);
 static void gst_videofilter_setup(GstVideofilter *videofilter);
 
 static GstElementClass *parent_class = NULL;
@@ -139,28 +139,28 @@ static GstStructure *gst_videofilter_format_get_structure(GstVideofilterFormat *
   return structure;
 }
 
-GstCaps2 * gst_videofilter_class_get_capslist(GstVideofilterClass *klass)
+GstCaps * gst_videofilter_class_get_capslist(GstVideofilterClass *klass)
 {
-  GstCaps2 *caps;
+  GstCaps *caps;
   GstStructure *structure;
   int i;
 
-  caps = gst_caps2_new_empty();
+  caps = gst_caps_new_empty();
   for(i=0;i<klass->formats->len;i++){
     structure = gst_videofilter_format_get_structure(g_ptr_array_index(klass->formats,i));
-    gst_caps2_append_cap (caps, structure);
+    gst_caps_append_structure (caps, structure);
   }
 
   return caps;
 }
 
-static GstCaps2 *
+static GstCaps *
 gst_videofilter_sink_getcaps (GstPad *pad)
 {
   GstVideofilter *videofilter;
   GstVideofilterClass *klass;
-  GstCaps2 *caps;
-  GstCaps2 *peercaps;
+  GstCaps *caps;
+  GstCaps *peercaps;
   int i;
 
   GST_DEBUG("gst_videofilter_sink_getcaps");
@@ -176,29 +176,29 @@ gst_videofilter_sink_getcaps (GstPad *pad)
   /* Look through our list of caps and find those that match with
    * the peer's formats.  Create a list of them. */
   /* FIXME optimize if peercaps == NULL */
-  caps = gst_caps2_new_empty ();
+  caps = gst_caps_new_empty ();
   for(i=0;i<klass->formats->len;i++){
-    GstCaps2 *icaps;
-    GstCaps2 *fromcaps;
+    GstCaps *icaps;
+    GstCaps *fromcaps;
     
-    fromcaps = gst_caps2_new_full (gst_videofilter_format_get_structure (
+    fromcaps = gst_caps_new_full (gst_videofilter_format_get_structure (
 	  g_ptr_array_index (klass->formats,i)));
 
-    icaps = gst_caps2_intersect (fromcaps, peercaps);
+    icaps = gst_caps_intersect (fromcaps, peercaps);
     if(icaps != NULL){
-      gst_caps2_append (caps, fromcaps);
+      gst_caps_append (caps, fromcaps);
     } else {
-      gst_caps2_free (fromcaps);
+      gst_caps_free (fromcaps);
     }
-    if(icaps) gst_caps2_free (icaps);
+    if(icaps) gst_caps_free (icaps);
   }
-  gst_caps2_free (peercaps);
+  gst_caps_free (peercaps);
 
   return caps;
 }
 
 static GstPadLinkReturn
-gst_videofilter_src_link (GstPad *pad, const GstCaps2 *caps)
+gst_videofilter_src_link (GstPad *pad, const GstCaps *caps)
 {
   GstVideofilter *videofilter;
   GstStructure *structure;
@@ -207,7 +207,7 @@ gst_videofilter_src_link (GstPad *pad, const GstCaps2 *caps)
   GST_DEBUG("gst_videofilter_src_link");
   videofilter = GST_VIDEOFILTER (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   videofilter->format = gst_videofilter_find_format_by_caps (videofilter,caps);
   g_return_val_if_fail(videofilter->format, GST_PAD_LINK_REFUSED);
@@ -226,7 +226,7 @@ gst_videofilter_src_link (GstPad *pad, const GstCaps2 *caps)
 }
 
 static GstPadLinkReturn
-gst_videofilter_sink_link (GstPad *pad, const GstCaps2 *caps)
+gst_videofilter_sink_link (GstPad *pad, const GstCaps *caps)
 {
   GstVideofilter *videofilter;
   GstPadLinkReturn ret;
@@ -235,7 +235,7 @@ gst_videofilter_sink_link (GstPad *pad, const GstCaps2 *caps)
   GST_DEBUG("gst_videofilter_sink_link");
   videofilter = GST_VIDEOFILTER (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   videofilter->format = gst_videofilter_find_format_by_caps (videofilter,caps);
   g_return_val_if_fail(videofilter->format, GST_PAD_LINK_REFUSED);
@@ -391,7 +391,7 @@ void gst_videofilter_set_output_size(GstVideofilter *videofilter,
     int width, int height)
 {
   int ret;
-  GstCaps2 *srccaps;
+  GstCaps *srccaps;
   GstStructure *structure;
 
   g_return_if_fail(GST_IS_VIDEOFILTER(videofilter));
@@ -402,8 +402,8 @@ void gst_videofilter_set_output_size(GstVideofilter *videofilter,
   videofilter->to_buf_size = (videofilter->to_width * videofilter->to_height
       * videofilter->format->depth)/8;
 
-  srccaps = gst_caps2_copy(gst_pad_get_caps(videofilter->srcpad));
-  structure = gst_caps2_get_nth_cap (srccaps, 0);
+  srccaps = gst_caps_copy(gst_pad_get_caps(videofilter->srcpad));
+  structure = gst_caps_get_structure (srccaps, 0);
 
   gst_structure_set (structure, "width", G_TYPE_INT, width,
       "height", G_TYPE_INT, height, NULL);
@@ -447,7 +447,7 @@ static void gst_videofilter_setup(GstVideofilter *videofilter)
 }
 
 GstVideofilterFormat *gst_videofilter_find_format_by_caps(GstVideofilter *videofilter,
-    const GstCaps2 *caps)
+    const GstCaps *caps)
 {
   int i;
   GstVideofilterClass *klass;
@@ -464,10 +464,10 @@ GstVideofilterFormat *gst_videofilter_find_format_by_caps(GstVideofilter *videof
     structure = gst_videofilter_format_get_structure(format);
 
     if(structure){
-      GstCaps2 *format_caps;
-      format_caps = gst_caps2_new_full (structure, NULL);
-      ret = gst_caps2_is_always_compatible (caps, format_caps);
-      gst_caps2_free (format_caps);
+      GstCaps *format_caps;
+      format_caps = gst_caps_new_full (structure, NULL);
+      ret = gst_caps_is_always_compatible (caps, format_caps);
+      gst_caps_free (format_caps);
 
       if (ret) return format;
     }

@@ -195,14 +195,14 @@ static gboolean
 caps_nego (GstFlacTag *tag)
 {
   /* do caps nego */
-  GstCaps2 *caps;
+  GstCaps *caps;
 
-  caps = gst_caps2_new_simple ("audio/x-flac", NULL);
+  caps = gst_caps_new_simple ("audio/x-flac", NULL);
   if (gst_pad_try_set_caps (tag->srcpad, caps) != GST_PAD_LINK_REFUSED) {
     tag->only_output_tags = FALSE;
     GST_LOG_OBJECT (tag, "normal operation, using audio/x-flac output");
   } else {
-    if (gst_pad_try_set_caps (tag->srcpad, gst_caps2_new_simple (
+    if (gst_pad_try_set_caps (tag->srcpad, gst_caps_new_simple (
             "application/x-gst-tags", NULL))
 	!= GST_PAD_LINK_REFUSED) {
       tag->only_output_tags = TRUE;

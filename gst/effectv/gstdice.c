@@ -171,14 +171,14 @@ gst_dicetv_class_init (GstDiceTVClass * klass)
 }
 
 static GstPadLinkReturn
-gst_dicetv_sinkconnect (GstPad * pad, const GstCaps2 * caps)
+gst_dicetv_sinkconnect (GstPad * pad, const GstCaps * caps)
 {
   GstDiceTV *filter;
   GstStructure *structure;
 
   filter = GST_DICETV (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int (structure, "width", &filter->width);
   gst_structure_get_int (structure, "height", &filter->height);

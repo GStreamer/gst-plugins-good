@@ -100,7 +100,7 @@ static void     gst_gdk_pixbuf_type_find (GstTypeFind *tf, gpointer ignore);
 static GstElementClass *parent_class = NULL;
 
 static GstPadLinkReturn
-gst_gdk_pixbuf_sink_link (GstPad *pad, const GstCaps2 *caps)
+gst_gdk_pixbuf_sink_link (GstPad *pad, const GstCaps *caps)
 {
   GstGdkPixbuf *filter;
 
@@ -117,29 +117,29 @@ gst_gdk_pixbuf_sink_link (GstPad *pad, const GstCaps2 *caps)
  * These are just the formats that gdk-pixbuf is known to support.
  * But maybe not -- it may have been compiled without an external
  * library. */
-static GstCaps2 *gst_gdk_pixbuf_get_capslist(void)
+static GstCaps *gst_gdk_pixbuf_get_capslist(void)
 {
-  return gst_caps2_copy (gst_static_caps_get (
+  return gst_caps_copy (gst_static_caps_get (
         &gst_gdk_pixbuf_sink_template.static_caps));
 }
 #else
-static GstCaps2 *gst_gdk_pixbuf_get_capslist(void)
+static GstCaps *gst_gdk_pixbuf_get_capslist(void)
 {
   GSList *slist;
   GSList *slist0;
   GdkPixbufFormat *pixbuf_format;
   char **mimetypes;
   char **mimetype;
-  GstCaps2 *capslist = NULL;
+  GstCaps *capslist = NULL;
 
-  capslist = gst_caps2_new_empty ();
+  capslist = gst_caps_new_empty ();
   slist0 = gdk_pixbuf_get_formats();
 
   for(slist = slist0;slist;slist=g_slist_next(slist)){
     pixbuf_format = slist->data;
     mimetypes = gdk_pixbuf_format_get_mime_types(pixbuf_format);
     for(mimetype = mimetypes; *mimetype; mimetype++){
-      gst_caps2_append_cap (capslist,
+      gst_caps_append_structure (capslist,
           gst_structure_new (*mimetype,NULL));
     }
     g_free(mimetypes);
@@ -150,7 +150,7 @@ static GstCaps2 *gst_gdk_pixbuf_get_capslist(void)
 }
 #endif
 
-static GstCaps2 *gst_gdk_pixbuf_sink_getcaps(GstPad *pad)
+static GstCaps *gst_gdk_pixbuf_sink_getcaps(GstPad *pad)
 {
   GstGdkPixbuf *filter;
 
@@ -265,7 +265,7 @@ gst_gdk_pixbuf_chain (GstPad *pad, GstData *_data)
       gdk_pixbuf_get_height(pixbuf));
 
   if(filter->image_size == 0){
-    GstCaps2 *caps;
+    GstCaps *caps;
 
     filter->width = gdk_pixbuf_get_width(pixbuf);
     filter->height = gdk_pixbuf_get_height(pixbuf);
@@ -273,7 +273,7 @@ gst_gdk_pixbuf_chain (GstPad *pad, GstData *_data)
     filter->image_size = filter->rowstride * filter->height;
 
     caps = gst_pad_get_caps(filter->srcpad);
-    gst_caps2_set_simple (caps,
+    gst_caps_set_simple (caps,
         "width", G_TYPE_INT, filter->width,
         "height", G_TYPE_INT, filter->height,
         "framerate", G_TYPE_DOUBLE, 0., NULL);
@@ -360,7 +360,7 @@ gst_gdk_pixbuf_type_find (GstTypeFind *tf, gpointer ignore)
     gchar **mlist = gdk_pixbuf_format_get_mime_types(format);
 
     gst_type_find_suggest (tf, GST_TYPE_FIND_MINIMUM,
-        gst_caps2_new_simple (mlist[0], NULL));
+        gst_caps_new_simple (mlist[0], NULL));
   }
 
   gdk_pixbuf_loader_close (pixbuf_loader, NULL);
@@ -380,7 +380,7 @@ plugin_init (GstPlugin *plugin)
 
   gst_type_find_register (plugin, "image/*", GST_RANK_MARGINAL,
 			  gst_gdk_pixbuf_type_find, NULL,
-                          gst_caps2_copy(GST_CAPS2_ANY), NULL);
+                          gst_caps_copy(GST_CAPS_ANY), NULL);
 
   /* plugin initialisation succeeded */
   return TRUE;

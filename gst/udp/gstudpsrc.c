@@ -203,7 +203,7 @@ gst_udpsrc_get (GstPad *pad)
       int fdread;
       struct sockaddr addr;
       xmlDocPtr doc;
-      GstCaps2 *caps;
+      GstCaps *caps;
 
       buf = g_malloc (1024*10);
 
@@ -233,7 +233,7 @@ gst_udpsrc_get (GstPad *pad)
 
       buf[ret] = '\0';
       doc = xmlParseMemory(buf, ret);
-      caps = gst_caps2_load_thyself(doc->xmlRootNode);
+      caps = gst_caps_load_thyself(doc->xmlRootNode);
       
       /* foward the connect, we don't signal back the result here... */
       gst_pad_proxy_link (udpsrc->srcpad, caps);

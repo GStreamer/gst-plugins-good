@@ -51,7 +51,7 @@ static void			gst_speexdec_class_init	(GstSpeexDec *klass);
 static void			gst_speexdec_init		(GstSpeexDec *speexdec);
 
 static void			gst_speexdec_chain	(GstPad *pad, GstData *_data);
-static GstPadLinkReturn	gst_speexdec_sinkconnect 	(GstPad *pad, const GstCaps2 *caps);
+static GstPadLinkReturn	gst_speexdec_sinkconnect 	(GstPad *pad, const GstCaps *caps);
 
 static GstElementClass *parent_class = NULL;
 /*static guint gst_speexdec_signals[LAST_SIGNAL] = { 0 }; */
@@ -143,7 +143,7 @@ gst_speexdec_init (GstSpeexDec *speexdec)
 }
 
 static GstPadLinkReturn
-gst_speexdec_sinkconnect (GstPad *pad, const GstCaps2 *caps)
+gst_speexdec_sinkconnect (GstPad *pad, const GstCaps *caps)
 {
   GstSpeexDec *speexdec;
   gint rate;
@@ -151,11 +151,11 @@ gst_speexdec_sinkconnect (GstPad *pad, const GstCaps2 *caps)
   
   speexdec = GST_SPEEXDEC (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   gst_structure_get_int  (structure, "rate", &rate);
 
   if (gst_pad_try_set_caps (speexdec->srcpad, 
-        gst_caps2_new_simple ("audio/x-raw-int",
+        gst_caps_new_simple ("audio/x-raw-int",
           "endianness", G_TYPE_INT, G_BYTE_ORDER,
           "signed",     G_TYPE_BOOLEAN, TRUE,
           "width",      G_TYPE_INT, 16,

@@ -61,7 +61,7 @@ GST_STATIC_PAD_TEMPLATE (
   "sink",
   GST_PAD_SINK,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS2_ANY
+  GST_STATIC_CAPS_ANY
 );
 
 static GstStaticPadTemplate gst_efence_src_factory =
@@ -69,7 +69,7 @@ GST_STATIC_PAD_TEMPLATE (
   "src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS2_ANY
+  GST_STATIC_CAPS_ANY
 );
 
 static void     gst_efence_base_init    (gpointer g_class);
@@ -102,7 +102,7 @@ void *gst_fenced_buffer_alloc(GstBuffer *buffer, unsigned int length,
 GstBuffer *gst_fenced_buffer_new(void);
 
 static GstPadLinkReturn
-gst_efence_link (GstPad *pad, const GstCaps2 *caps)
+gst_efence_link (GstPad *pad, const GstCaps *caps)
 {
   GstEFence *filter;
   GstPad *otherpad;

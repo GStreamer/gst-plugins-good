@@ -4,19 +4,19 @@
 #include "mulaw-encode.h"
 #include "mulaw-decode.h"
 
-static GstCaps2*
+static GstCaps*
 mulaw_factory (void)
 {
-  return gst_caps2_new_simple ("audio/x-mulaw",
+  return gst_caps_new_simple ("audio/x-mulaw",
       "rate",     GST_TYPE_INT_RANGE, 8000, 192000,
       "channels", GST_TYPE_INT_RANGE, 1, 2,
       NULL);
 }
 
-static GstCaps2*
+static GstCaps*
 linear_factory (void)
 {
-  return gst_caps2_new_simple ("audio/x-raw-int",
+  return gst_caps_new_simple ("audio/x-raw-int",
       "width",      G_TYPE_INT, 16,
       "depth",      G_TYPE_INT, 16,
       "endianness", G_TYPE_INT, G_BYTE_ORDER,
@@ -32,7 +32,7 @@ GstPadTemplate *mulawdec_src_template, *mulawdec_sink_template;
 static gboolean
 plugin_init (GstPlugin *plugin)
 {
-  GstCaps2* mulaw_caps, *linear_caps;
+  GstCaps* mulaw_caps, *linear_caps;
 
   mulaw_caps = mulaw_factory ();
   linear_caps = linear_factory ();

@@ -59,21 +59,21 @@ static GstElementClass *parent_class = NULL;
 
 
 static GstPadLinkReturn
-mulawdec_link (GstPad *pad, const GstCaps2 *caps)
+mulawdec_link (GstPad *pad, const GstCaps *caps)
 {
-  GstCaps2* tempcaps;
+  GstCaps* tempcaps;
   gint rate, channels;
   GstStructure *structure;
   gboolean ret;
   
   GstMuLawDec* mulawdec = GST_MULAWDEC (GST_OBJECT_PARENT (pad));
   
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   ret = gst_structure_get_int (structure, "rate", &rate);
   ret = gst_structure_get_int (structure, "channels", &channels);
   if (!ret) return GST_PAD_LINK_REFUSED;
 
-  tempcaps = gst_caps2_new_simple ("audio/x-mulaw",
+  tempcaps = gst_caps_new_simple ("audio/x-mulaw",
       "depth",    G_TYPE_INT, 16,
       "width",    G_TYPE_INT, 16,
       "signed",   G_TYPE_BOOLEAN, TRUE,

@@ -51,7 +51,7 @@ static void		gst_jpegenc_class_init	(GstJpegEnc *klass);
 static void		gst_jpegenc_init	(GstJpegEnc *jpegenc);
 
 static void		gst_jpegenc_chain	(GstPad *pad, GstData *_data);
-static GstPadLinkReturn	gst_jpegenc_link	(GstPad *pad, const GstCaps2 *caps);
+static GstPadLinkReturn	gst_jpegenc_link	(GstPad *pad, const GstCaps *caps);
 
 static GstData	*gst_jpegenc_get	(GstPad *pad);
 
@@ -83,27 +83,27 @@ gst_jpegenc_get_type (void)
   return jpegenc_type;
 }
 
-static GstCaps2*
+static GstCaps*
 jpeg_caps_factory (void) 
 {
-  return gst_caps2_new_simple ("video/x-jpeg",
+  return gst_caps_new_simple ("video/x-jpeg",
       "width",     GST_TYPE_INT_RANGE, 16, 4096,
       "height",    GST_TYPE_INT_RANGE, 16, 4096,
       "framerate", GST_TYPE_DOUBLE_RANGE, 0, G_MAXDOUBLE,
       NULL);
 }
 
-static GstCaps2*
+static GstCaps*
 raw_caps_factory (void)
 {
-  return gst_caps2_from_string (GST_VIDEO_YUV_PAD_TEMPLATE_CAPS ("I420"));
+  return gst_caps_from_string (GST_VIDEO_YUV_PAD_TEMPLATE_CAPS ("I420"));
 }
 
 static void
 gst_jpegenc_base_init (gpointer g_class)
 {
   GstElementClass *element_class = GST_ELEMENT_CLASS (g_class);
-  GstCaps2 *raw_caps, *jpeg_caps;
+  GstCaps *raw_caps, *jpeg_caps;
   
   raw_caps = raw_caps_factory ();
   jpeg_caps = jpeg_caps_factory ();
@@ -193,17 +193,17 @@ gst_jpegenc_init (GstJpegEnc *jpegenc)
 }
 
 static GstPadLinkReturn
-gst_jpegenc_link (GstPad *pad, const GstCaps2 *caps)
+gst_jpegenc_link (GstPad *pad, const GstCaps *caps)
 {
   GstJpegEnc *jpegenc = GST_JPEGENC (gst_pad_get_parent (pad));
   GstStructure *structure;
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   gst_structure_get_double (structure, "framerate", &jpegenc->fps);
   gst_structure_get_int (structure, "width",     &jpegenc->width);
   gst_structure_get_int (structure, "height",    &jpegenc->height);
   
-  caps = gst_caps2_new_simple ("video/x-jpeg",
+  caps = gst_caps_new_simple ("video/x-jpeg",
       "width",     G_TYPE_INT, jpegenc->width,
       "height",    G_TYPE_INT, jpegenc->height,
       "framerate", G_TYPE_DOUBLE, jpegenc->fps,

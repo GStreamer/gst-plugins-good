@@ -240,14 +240,14 @@ gst_aasink_class_init (GstAASinkClass *klass)
 }
 
 static GstPadLinkReturn
-gst_aasink_sinkconnect (GstPad *pad, const GstCaps2 *caps)
+gst_aasink_sinkconnect (GstPad *pad, const GstCaps *caps)
 {
   GstAASink *aasink;
   GstStructure *structure;
 
   aasink = GST_AASINK (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   gst_structure_get_int (structure, "width", &aasink->width);
   gst_structure_get_int (structure, "height", &aasink->height);
 

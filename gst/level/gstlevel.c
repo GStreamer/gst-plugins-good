@@ -105,7 +105,7 @@ gst_level_get_type (void)
 }
 
 static GstPadLinkReturn
-gst_level_link (GstPad *pad, const GstCaps2 *caps)
+gst_level_link (GstPad *pad, const GstCaps *caps)
 {
   GstLevel *filter;
   GstPad *otherpad;
@@ -127,7 +127,7 @@ gst_level_link (GstPad *pad, const GstCaps2 *caps)
 
   filter->num_samples = 0;
   
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   ret = gst_structure_get_int (structure, "rate", &filter->rate);
   ret &= gst_structure_get_int (structure, "width", &filter->width);
   ret &= gst_structure_get_int (structure, "channels", &filter->channels);

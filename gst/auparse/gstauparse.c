@@ -150,7 +150,7 @@ gst_auparse_chain (GstPad *pad, GstData *_data)
   GstAuParse *auparse;
   gchar *data;
   glong size;
-  GstCaps2 *tempcaps;
+  GstCaps *tempcaps;
   gint law, depth;
   gboolean sign;
 
@@ -238,11 +238,11 @@ gst_auparse_chain (GstPad *pad, GstData *_data)
     }
 
     if (law) {
-      tempcaps = gst_caps2_new_simple ("audio/x-alaw",
+      tempcaps = gst_caps_new_simple ("audio/x-alaw",
 	  "rate", G_TYPE_INT, auparse->frequency,
 	  "channels", G_TYPE_INT, auparse->channels, NULL);
     } else {
-      tempcaps = gst_caps2_new_simple ("audio/x-raw-int",
+      tempcaps = gst_caps_new_simple ("audio/x-raw-int",
 	  "endianness", G_TYPE_INT, G_BIG_ENDIAN,
 	  "rate",       G_TYPE_INT, auparse->frequency,
 	  "channels",   G_TYPE_INT, auparse->channels,

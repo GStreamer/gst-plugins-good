@@ -145,14 +145,14 @@ gst_edgetv_class_init (GstEdgeTVClass * klass)
 }
 
 static GstPadLinkReturn
-gst_edgetv_sinkconnect (GstPad * pad, const GstCaps2 * caps)
+gst_edgetv_sinkconnect (GstPad * pad, const GstCaps * caps)
 {
   GstEdgeTV *filter;
   GstStructure *structure;
 
   filter = GST_EDGETV (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int (structure, "width", &filter->width);
   gst_structure_get_int (structure, "height", &filter->height);

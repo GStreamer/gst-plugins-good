@@ -77,7 +77,7 @@ static void 			gst_osssrc_class_init	(GstOssSrcClass *klass);
 static void 			gst_osssrc_init		(GstOssSrc *osssrc);
 static void 			gst_osssrc_dispose	(GObject *object);
 
-static GstPadLinkReturn 	gst_osssrc_srcconnect 	(GstPad *pad, const GstCaps2 *caps);
+static GstPadLinkReturn 	gst_osssrc_srcconnect 	(GstPad *pad, const GstCaps *caps);
 static const GstFormat* 	gst_osssrc_get_formats 	(GstPad *pad);
 static gboolean 		gst_osssrc_convert 	(GstPad *pad, 
 							 GstFormat src_format, gint64 src_value,
@@ -202,7 +202,7 @@ gst_osssrc_dispose (GObject *object)
 }
 
 static GstPadLinkReturn 
-gst_osssrc_srcconnect (GstPad *pad, const GstCaps2 *caps)
+gst_osssrc_srcconnect (GstPad *pad, const GstCaps *caps)
 {
   GstOssSrc *src;
 
@@ -221,7 +221,7 @@ static gboolean
 gst_osssrc_negotiate (GstPad *pad)
 {
   GstOssSrc *src;
-  GstCaps2 *allowed;
+  GstCaps *allowed;
 
   src = GST_OSSSRC(gst_pad_get_parent (pad));
 
@@ -235,7 +235,7 @@ gst_osssrc_negotiate (GstPad *pad)
     
   /* set caps on src pad */
   if (gst_pad_try_set_caps (src->srcpad, 
-	gst_caps2_new_simple("audio/x-raw-int",
+	gst_caps_new_simple("audio/x-raw-int",
 	    "endianness", G_TYPE_INT, GST_OSSELEMENT (src)->endianness,
 	    "signed",     G_TYPE_BOOLEAN, GST_OSSELEMENT (src)->sign,
 	    "width",      G_TYPE_INT, GST_OSSELEMENT (src)->width,

@@ -150,7 +150,7 @@ gst_udpsink_class_init (GstUDPSink *klass)
 
 
 static GstPadLinkReturn
-gst_udpsink_sink_link (GstPad *pad, const GstCaps2 *caps)
+gst_udpsink_sink_link (GstPad *pad, const GstCaps *caps)
 {
   GstUDPSink *udpsink;
   struct sockaddr_in serv_addr;
@@ -182,7 +182,7 @@ gst_udpsink_sink_link (GstPad *pad, const GstCaps2 *caps)
   doc = xmlNewDoc ("1.0");
   doc->xmlRootNode = xmlNewDocNode (doc, NULL, "NewCaps", NULL);
 
-  gst_caps2_save_thyself (caps, doc->xmlRootNode);
+  gst_caps_save_thyself (caps, doc->xmlRootNode);
 
   switch (udpsink->control) {
     case CONTROL_UDP:

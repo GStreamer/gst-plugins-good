@@ -79,7 +79,7 @@ static void			gst_esdsink_init		(GTypeInstance *instance, gpointer g_class);
 static gboolean			gst_esdsink_open_audio		(GstEsdsink *sink);
 static void			gst_esdsink_close_audio		(GstEsdsink *sink);
 static GstElementStateReturn	gst_esdsink_change_state	(GstElement *element);
-static GstPadLinkReturn		gst_esdsink_link		(GstPad *pad, const GstCaps2 *caps);
+static GstPadLinkReturn		gst_esdsink_link		(GstPad *pad, const GstCaps *caps);
 
 static GstClockTime		gst_esdsink_get_time		(GstClock *clock, gpointer data);
 static GstClock *		gst_esdsink_get_clock		(GstElement *element);
@@ -185,14 +185,14 @@ gst_esdsink_init(GTypeInstance *instance, gpointer g_class)
 }
 
 static GstPadLinkReturn
-gst_esdsink_link (GstPad *pad, const GstCaps2 *caps)
+gst_esdsink_link (GstPad *pad, const GstCaps *caps)
 {
   GstEsdsink *esdsink;
   GstStructure *structure;
 
   esdsink = GST_ESDSINK (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   gst_structure_get_int (structure, "signed", &esdsink->depth);
   gst_structure_get_int (structure, "channels", &esdsink->channels);
   gst_structure_get_int (structure, "rate", &esdsink->frequency);

@@ -723,27 +723,27 @@ gst_dvdec_loop (GstElement *element)
 
   /* if we did not negotiate yet, do it now */
   if (!GST_PAD_CAPS (dvdec->videosrcpad)) {
-    GstCaps2 *caps = NULL;
-    GstCaps2 *negotiated_caps = NULL;
+    GstCaps *caps = NULL;
+    GstCaps *negotiated_caps = NULL;
     GstPadTemplate *src_pad_template;
     int i;
     
     /* try to fix our height */
     src_pad_template = gst_static_pad_template_get (&video_src_temp);
-    caps = gst_caps2_copy(gst_pad_template_get_caps (src_pad_template));
+    caps = gst_caps_copy(gst_pad_template_get_caps (src_pad_template));
 
-    for (i = 0; i < gst_caps2_get_n_structures (caps); i++)
+    for (i = 0; i < gst_caps_get_size (caps); i++)
     {
-	GstStructure *structure = gst_caps2_get_nth_cap (caps, i);
+	GstStructure *structure = gst_caps_get_structure (caps, i);
 	gst_structure_set(structure, 
 	        "height", G_TYPE_INT, height,
                 "framerate", G_TYPE_INT, fps, NULL
 	      );
     }
 
-    for (i=0; i < gst_caps2_get_n_structures(caps); i++) {
-      GstStructure *to_try_struct = gst_caps2_get_nth_cap (caps, i);
-      GstCaps2 *try_caps = gst_caps2_new_full (to_try_struct);
+    for (i=0; i < gst_caps_get_size(caps); i++) {
+      GstStructure *to_try_struct = gst_caps_get_structure (caps, i);
+      GstCaps *try_caps = gst_caps_new_full (to_try_struct);
 
       /* try each format */
       if (gst_pad_try_set_caps (dvdec->videosrcpad, try_caps) > 0) {
@@ -751,14 +751,14 @@ gst_dvdec_loop (GstElement *element)
         break;
       }
 
-      gst_caps2_free(try_caps);
+      gst_caps_free(try_caps);
     }
 
-    gst_caps2_free (caps);
+    gst_caps_free (caps);
 
     /* Check if we negotiated caps successfully */
     if (negotiated_caps != NULL) {
-        GstStructure *structure = gst_caps2_get_nth_cap (negotiated_caps, 0);
+        GstStructure *structure = gst_caps_get_structure (negotiated_caps, 0);
         guint32 fourcc;
 
 	/* it worked, try to find what it was again */
@@ -801,7 +801,7 @@ gst_dvdec_loop (GstElement *element)
     /* if we did not negotiate yet, do it now */
     if (!GST_PAD_CAPS (dvdec->audiosrcpad)) {
       gst_pad_try_set_caps (dvdec->audiosrcpad,
-	gst_caps2_new_simple (
+	gst_caps_new_simple (
 	  "audio/x-raw-int", 
     	    "rate", G_TYPE_INT, dvdec->decoder->audio->frequency,
 	    "depth", G_TYPE_INT,  16,

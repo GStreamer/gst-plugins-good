@@ -137,14 +137,14 @@ gst_median_class_init (GstMedianClass *klass)
 }
 
 static gboolean
-gst_median_sinkconnect (GstPad *pad, const GstCaps2 *caps)
+gst_median_sinkconnect (GstPad *pad, const GstCaps *caps)
 {
   GstMedian *filter;
   GstStructure *structure;
 
   filter = GST_MEDIAN (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int (structure, "width", &filter->width);
   gst_structure_get_int (structure, "height", &filter->height);

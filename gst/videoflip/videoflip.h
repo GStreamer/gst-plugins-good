@@ -39,7 +39,7 @@ extern int videoflip_n_formats;
 
 GstStructure *videoflip_get_cap(struct videoflip_format_struct *format);
 
-struct videoflip_format_struct *videoflip_find_by_caps(const GstCaps2 *caps);
+struct videoflip_format_struct *videoflip_find_by_caps(const GstCaps *caps);
 
 
 #endif

@@ -160,9 +160,9 @@ gst_rtpgsmparse_ntohs (GstBuffer *buf)
 void
 gst_rtpgsm_caps_nego (GstRtpGSMParse *rtpgsmparse)
 {
-  GstCaps2 *caps;
+  GstCaps *caps;
 
-  caps = gst_caps2_new_simple ("audio/x-gsm",
+  caps = gst_caps_new_simple ("audio/x-gsm",
        "rate", G_TYPE_INT, rtpgsmparse->frequency);
 
   gst_pad_try_set_caps (rtpgsmparse->srcpad, caps);

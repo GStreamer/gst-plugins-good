@@ -241,14 +241,14 @@ gst_wavenc_setup (GstWavEnc *wavenc)
 }
 
 static GstPadLinkReturn
-gst_wavenc_sinkconnect (GstPad *pad, const GstCaps2 *caps)
+gst_wavenc_sinkconnect (GstPad *pad, const GstCaps *caps)
 {
   GstWavEnc *wavenc;
   GstStructure *structure;
 
   wavenc = GST_WAVENC (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_int  (structure, "channels", &wavenc->channels);
   gst_structure_get_int  (structure, "rate", &wavenc->rate);
@@ -409,7 +409,7 @@ write_cues (GstWavEnc *wavenc)
 	point_string = g_string_sized_new (CUEPOINT_SIZE);
 	
 	for (c = cue_list, num_cues = 0; c; c = c->next, num_cues++) {
-		GstCaps2 *cue_caps = c->data;
+		GstCaps *cue_caps = c->data;
 		guint32 pos;
 		
 		gst_props_get (cue_caps->properties, "position", &pos, NULL);
@@ -456,7 +456,7 @@ write_labels (GstWavEnc *wavenc)
 		int i;
 
 		for (p = caps, i = 1; p; p = p->next, i++) {
-			GstCaps2 *ltxt_caps = p->data;
+			GstCaps *ltxt_caps = p->data;
 			GString *ltxt;
 			char *label = NULL;
 			int len, req, j;
@@ -498,7 +498,7 @@ write_labels (GstWavEnc *wavenc)
 		int i;
 
 		for (p = caps, i = 1; p; p = p->next, i++) {
-			GstCaps2 *labl_caps = p->data;
+			GstCaps *labl_caps = p->data;
 			GString *labl;
 			char *label = NULL;
 			int len, req, j;
@@ -534,7 +534,7 @@ write_labels (GstWavEnc *wavenc)
 		int i;
 
 		for (p = caps, i = 1; p; p = p->next, i++) {
-			GstCaps2 *note_caps = p->data;
+			GstCaps *note_caps = p->data;
 			GString *note;
 			char *label = NULL;
 			int len, req, j;

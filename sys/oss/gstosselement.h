@@ -101,9 +101,9 @@ GType		gst_osselement_get_type		(void);
 
 /* some useful functions */
 gboolean 	gst_osselement_parse_caps 	(GstOssElement *oss,
-						 const GstCaps2      *caps);
+						 const GstCaps      *caps);
 gboolean	gst_osselement_merge_fixed_caps (GstOssElement *oss,
-						 GstCaps2      *caps);
+						 GstCaps      *caps);
 	
 gboolean 	gst_osselement_sync_parms 	(GstOssElement *oss);
 void		gst_osselement_reset 		(GstOssElement *oss);

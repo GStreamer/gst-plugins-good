@@ -90,10 +90,10 @@ GType gst_pngenc_get_type (void)
   return pngenc_type;
 }
 
-static GstCaps2*
+static GstCaps*
 png_caps_factory (void)
 {
-  return gst_caps2_new_simple ("video/x-png",
+  return gst_caps_new_simple ("video/x-png",
       "width",     GST_TYPE_INT_RANGE, 16, 4096,
       "height",    GST_TYPE_INT_RANGE, 16, 4096,
       "framerate", GST_TYPE_DOUBLE_RANGE, 0.0, G_MAXDOUBLE,
@@ -101,17 +101,17 @@ png_caps_factory (void)
 }
 
 
-static GstCaps2*
+static GstCaps*
 raw_caps_factory (void)
 { 
-  return gst_caps2_from_string (GST_VIDEO_RGB_PAD_TEMPLATE_CAPS_24);
+  return gst_caps_from_string (GST_VIDEO_RGB_PAD_TEMPLATE_CAPS_24);
 }
 
 static void
 gst_pngenc_base_init (gpointer g_class)
 {
   GstElementClass *element_class = GST_ELEMENT_CLASS (g_class);
-  GstCaps2 *raw_caps, *png_caps;
+  GstCaps *raw_caps, *png_caps;
   
   raw_caps = raw_caps_factory ();
   png_caps = png_caps_factory ();
@@ -143,7 +143,7 @@ gst_pngenc_class_init (GstPngEncClass *klass)
 
 
 static GstPadLinkReturn
-gst_pngenc_sinklink (GstPad *pad, const GstCaps2 *caps)
+gst_pngenc_sinklink (GstPad *pad, const GstCaps *caps)
 {
   GstPngEnc *pngenc;
   gdouble fps;
@@ -151,13 +151,13 @@ gst_pngenc_sinklink (GstPad *pad, const GstCaps2 *caps)
 
   pngenc = GST_PNGENC (gst_pad_get_parent (pad));
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   gst_structure_get_int (structure, "width", &pngenc->width);
   gst_structure_get_int (structure, "height", &pngenc->height);
   gst_structure_get_double (structure, "framerate", &fps);
   gst_structure_get_int (structure, "bpp", &pngenc->bpp);
 
-  caps = gst_caps2_new_simple ("video/x-png",
+  caps = gst_caps_new_simple ("video/x-png",
       "framerate", G_TYPE_DOUBLE, fps,
       "width",     G_TYPE_INT, pngenc->width,
       "height",    G_TYPE_INT, pngenc->height, NULL);

@@ -120,23 +120,23 @@ static GstElementClass *parent_class = NULL;
 /*static guint gst_stereo_signals[LAST_SIGNAL] = { 0 }; */
 
 static GstPadLinkReturn
-alawenc_link (GstPad *pad, const GstCaps2 *caps)
+alawenc_link (GstPad *pad, const GstCaps *caps)
 {
-  GstCaps2* tempcaps;
+  GstCaps* tempcaps;
   gint rate, channels;
   GstStructure *structure;
   gboolean ret;
   
   GstALawEnc* alawenc = GST_ALAWENC (GST_OBJECT_PARENT (pad));
   
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   ret = gst_structure_get_int (structure, "rate", &rate);
   ret &= gst_structure_get_int (structure, "channels", &channels);
 
   if (!ret) return GST_PAD_LINK_REFUSED;
   
-  tempcaps = gst_caps2_new_simple ("audio/x-alaw",
+  tempcaps = gst_caps_new_simple ("audio/x-alaw",
       "depth",    G_TYPE_INT, 8,
       "width",    G_TYPE_INT, 8,
       "signed",   G_TYPE_BOOLEAN, FALSE,

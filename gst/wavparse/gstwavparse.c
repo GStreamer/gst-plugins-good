@@ -73,7 +73,7 @@ GST_STATIC_PAD_TEMPLATE (
   "wavparse_src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS2_ANY
+  GST_STATIC_CAPS_ANY
 );
 #if 0
   GST_STATIC_CAPS (
@@ -241,7 +241,7 @@ gst_wavparse_parse_adtl (GstWavParse *wavparse,
   char *label_name;
   GstProps *props;
   GstPropsEntry *entry;
-  GstCaps2 *new_caps;
+  GstCaps *new_caps;
   GList *caps = NULL;
 
   props = wavparse->metadata->properties;
@@ -570,7 +570,7 @@ gst_wavparse_parse_cues (GstWavParse *wavparse,
     points = (struct _gst_riff_cuepoints *) tempdata;
     
     for (i = 0; i < cue.cuepoints; i++) {
-      GstCaps2 *caps;
+      GstCaps *caps;
 
       caps = gst_caps_new ("cues",
 													 "application/x-gst-metadata",
@@ -592,7 +592,7 @@ static void
 gst_wavparse_parse_fmt (GstWavParse *wavparse)
 {
   GstWavParseFormat *format;
-  GstCaps2 *caps = NULL;
+  GstCaps *caps = NULL;
   guint8 *fmtdata;
   GstByteStream *bs = wavparse->bs;
   guint32 got_bytes;

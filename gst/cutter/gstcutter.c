@@ -125,7 +125,7 @@ gst_cutter_base_init (gpointer g_class)
 }
 
 static GstPadLinkReturn
-gst_cutter_link (GstPad *pad, const GstCaps2*caps)
+gst_cutter_link (GstPad *pad, const GstCaps*caps)
 {
   GstCutter *filter;
   GstPad *otherpad;
@@ -450,7 +450,7 @@ GST_PLUGIN_DEFINE (
 void
 gst_cutter_get_caps (GstPad *pad, GstCutter* filter)
 {
-  GstCaps2 *caps = NULL;
+  GstCaps *caps = NULL;
   GstStructure *structure;
 
   caps = GST_PAD_CAPS (pad);
@@ -458,7 +458,7 @@ gst_cutter_get_caps (GstPad *pad, GstCutter* filter)
   g_assert (caps != NULL);
   if (caps == NULL)
     printf ("WARNING: get_caps: Could not get caps of pad !\n");
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
   gst_structure_get_int (structure, "width", &filter->width);
   filter->max_sample = gst_audio_highest_sample_value (pad);
   filter->have_caps = TRUE;

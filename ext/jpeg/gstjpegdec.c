@@ -54,7 +54,7 @@ static void	gst_jpegdec_init	(GstJpegDec *jpegdec);
 
 static void	gst_jpegdec_chain	(GstPad *pad, GstData *_data);
 static GstPadLinkReturn
-		gst_jpegdec_link	(GstPad *pad, const GstCaps2 *caps);
+		gst_jpegdec_link	(GstPad *pad, const GstCaps *caps);
 
 static GstElementClass *parent_class = NULL;
 /*static guint gst_jpegdec_signals[LAST_SIGNAL] = { 0 }; */
@@ -80,27 +80,27 @@ gst_jpegdec_get_type(void) {
   return jpegdec_type;
 }
 
-static GstCaps2*
+static GstCaps*
 jpeg_caps_factory (void) 
 {
-  return gst_caps2_new_simple ("image/jpeg",
+  return gst_caps_new_simple ("image/jpeg",
       "width",     GST_TYPE_INT_RANGE, 16, 4096,
       "height",    GST_TYPE_INT_RANGE, 16, 4096,
       "framerate", GST_TYPE_DOUBLE_RANGE, 0.0, G_MAXDOUBLE,
       NULL);
 }
 
-static GstCaps2*
+static GstCaps*
 raw_caps_factory (void)
 {
-  return gst_caps2_from_string (GST_VIDEO_YUV_PAD_TEMPLATE_CAPS ("I420"));
+  return gst_caps_from_string (GST_VIDEO_YUV_PAD_TEMPLATE_CAPS ("I420"));
 }
 
 static void
 gst_jpegdec_base_init (gpointer g_class)
 {
   GstElementClass *element_class = GST_ELEMENT_CLASS (g_class);
-  GstCaps2 *raw_caps, *jpeg_caps;
+  GstCaps *raw_caps, *jpeg_caps;
   
   raw_caps = raw_caps_factory ();
   jpeg_caps = jpeg_caps_factory ();
@@ -197,18 +197,18 @@ gst_jpegdec_init (GstJpegDec *jpegdec)
 }
 
 static GstPadLinkReturn
-gst_jpegdec_link (GstPad *pad, const GstCaps2 *caps)
+gst_jpegdec_link (GstPad *pad, const GstCaps *caps)
 {
   GstJpegDec *jpegdec = GST_JPEGDEC (gst_pad_get_parent (pad));
   GstStructure *structure;
 
-  structure = gst_caps2_get_nth_cap (caps, 0);
+  structure = gst_caps_get_structure (caps, 0);
 
   gst_structure_get_double (structure, "framerate", &jpegdec->fps);
   gst_structure_get_int (structure, "width",     &jpegdec->width);
   gst_structure_get_int (structure, "height",    &jpegdec->height);
 
-  caps = gst_caps2_new_simple ("video/x-raw-yuv",
+  caps = gst_caps_new_simple ("video/x-raw-yuv",
       "format",    GST_TYPE_FOURCC, GST_MAKE_FOURCC ('I','4','2','0'),
       "width",     G_TYPE_INT, jpegdec->width,
       "height",    G_TYPE_INT, jpegdec->height,
@@ -405,7 +405,7 @@ gst_jpegdec_chain (GstPad *pad, GstData *_data)
     jpegdec->height = height;
 
     gst_pad_try_set_caps (jpegdec->srcpad,
-        gst_caps2_new_simple ("video/x-raw-yuv",
+        gst_caps_new_simple ("video/x-raw-yuv",
           "format",    GST_TYPE_FOURCC, GST_MAKE_FOURCC ('I','4','2','0'),
           "width",     G_TYPE_INT, width,
           "height",    G_TYPE_INT, height,

@@ -4,19 +4,19 @@
 #include "alaw-encode.h"
 #include "alaw-decode.h"
 
-static GstCaps2*
+static GstCaps*
 alaw_factory (void)
 {
-  return gst_caps2_new_simple ("audio/x-alaw",
+  return gst_caps_new_simple ("audio/x-alaw",
       "rate",     GST_TYPE_INT_RANGE, 8000, 192000,
       "channels", GST_TYPE_INT_RANGE, 1, 2,
       NULL);
 }
 
-static GstCaps2*
+static GstCaps*
 linear_factory (void)
 {
-  return gst_caps2_new_simple ("audio/x-raw-int",
+  return gst_caps_new_simple ("audio/x-raw-int",
       "width",      G_TYPE_INT, 16,
       "depth",      G_TYPE_INT, 16,
       "endianness", G_TYPE_INT, G_BYTE_ORDER,
@@ -32,7 +32,7 @@ GstPadTemplate *alawdec_src_template, *alawdec_sink_template;
 static gboolean
 plugin_init (GstPlugin *plugin)
 {
-  GstCaps2* alaw_caps, *linear_caps;
+  GstCaps* alaw_caps, *linear_caps;
 
   alaw_caps = alaw_factory ();
   linear_caps = linear_factory ();

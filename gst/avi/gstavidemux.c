@@ -129,7 +129,7 @@ gst_avi_demux_base_init (GstAviDemuxClass *klass)
   );
   GstElementClass *element_class = GST_ELEMENT_CLASS (klass);
   GstPadTemplate *videosrctempl, *audiosrctempl;
-  GstCaps2 *audcaps, *vidcaps;
+  GstCaps *audcaps, *vidcaps;
 
   audcaps = gst_riff_create_audio_template_caps ();
   audiosrctempl = gst_pad_template_new ("audio_%02d",
@@ -138,7 +138,7 @@ gst_avi_demux_base_init (GstAviDemuxClass *klass)
 					audcaps);
 
   vidcaps = gst_riff_create_video_template_caps ();
-  gst_caps2_append (vidcaps, gst_riff_create_iavs_template_caps ());
+  gst_caps_append (vidcaps, gst_riff_create_iavs_template_caps ());
   videosrctempl = gst_pad_template_new ("video_%02d",
 					GST_PAD_SRC,
 					GST_PAD_SOMETIMES,
@@ -162,7 +162,7 @@ gst_avi_demux_class_init (GstAviDemuxClass *klass)
 
   g_object_class_install_property (gobject_class, ARG_STREAMINFO,
     g_param_spec_boxed ("streaminfo", "Streaminfo", "Streaminfo",
-                        GST_TYPE_CAPS2, G_PARAM_READABLE));
+                        GST_TYPE_CAPS, G_PARAM_READABLE));
 
   GST_DEBUG_CATEGORY_INIT (avidemux_debug, "avidemux",
 			   0, "Demuxer for AVI streams");
@@ -222,7 +222,7 @@ gst_avi_demux_reset (GstAviDemux *avi)
 
   avi->seek_offset = (guint64) -1;
 
-  gst_caps2_replace (&avi->streaminfo, NULL);
+  gst_caps_replace (&avi->streaminfo, NULL);
 }
 
 static void
@@ -230,8 +230,8 @@ gst_avi_demux_streaminfo (GstAviDemux *avi)
 {
   /* compression formats are added later - a bit hacky */
 
-  gst_caps2_replace (&avi->streaminfo,
-      gst_caps2_new_simple ("application/x-gst-streaminfo", NULL));
+  gst_caps_replace (&avi->streaminfo,
+      gst_caps_new_simple ("application/x-gst-streaminfo", NULL));
 
   /*g_object_notify(G_OBJECT(avi), "streaminfo");*/
 }
@@ -772,7 +772,7 @@ gst_avi_demux_add_stream (GstAviDemux *avi)
   guint32 tag;
   gst_riff_strh *strh;
   gchar *name = NULL, *padname = NULL;
-  GstCaps2 *caps = NULL;
+  GstCaps *caps = NULL;
   GstPadTemplate *templ = NULL;
   GstPad *pad;
   avi_stream_context *stream;
