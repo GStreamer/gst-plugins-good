@@ -76,7 +76,7 @@ GST_PAD_TEMPLATE_FACTORY (src_template_factory,
     "audio/raw",
       "format",            GST_PROPS_STRING ("int"),
        "law",              GST_PROPS_INT (0),
-       "endianness",       GST_PROPS_INT (G_LITTLE_ENDIAN),
+       "endianness",       GST_PROPS_INT (G_BYTE_ORDER),
        "signed",           GST_PROPS_LIST (
 				GST_PROPS_BOOLEAN (FALSE),
 				GST_PROPS_BOOLEAN (TRUE)
@@ -216,6 +216,61 @@ wav_type_find (GstBuffer *buf, gpointer private)
   return gst_caps_new ("wav_type_find", "audio/x-wav", NULL);
 }
 
+static inline void
+gst_wavparse_push (GstWavParse *wavparse,
+                   GstBuffer   *buf)
+{
+#if (G_BYTE_ORDER == G_BIG_ENDIAN)
+  /* PCM Wav can be multi-byte, but the byte order is
+   * little endian. We prefer native byte order since
+   * that's what other elements expect. */
+  if (wavparse->format == GST_RIFF_WAVE_FORMAT_PCM) {
+    switch (wavparse->width) {
+      case 8:
+        /* nothing needed */
+        break;
+
+      case 16: {
+        GstBuffer *bsbuf;
+        gint16 *bsdata, *data;
+        guint i;
+
+        if (gst_buffer_needs_copy_on_write(buf)) {
+          bsbuf = gst_buffer_new_and_alloc(GST_BUFFER_SIZE(buf));
+        } else {
+          bsbuf = buf;
+        }
+
+        bsdata = (gint16 *) GST_BUFFER_DATA(bsbuf);
+        data = (gint16 *) GST_BUFFER_DATA(buf);
+
+        /* use GUINT16_FROM_LE for conversion */
+        for (i = 0; i < (GST_BUFFER_SIZE(bsbuf)/2); i++) {
+          bsdata[i] = GINT16_FROM_LE(data[i]);
+        }
+
+        /* if we've created a new buffer, we no longer need the old
+         * one here - so unref() it */
+        if (buf != bsbuf) {
+          GST_BUFFER_TIMESTAMP(bsbuf) = GST_BUFFER_TIMESTAMP(buf);
+          gst_buffer_unref(buf);
+        }
+
+        buf = bsbuf;
+        break;
+      }
+
+      default:
+        /* we only support 8/16 bit audio */
+        g_assert_not_reached();
+        break;
+    }
+  }
+#endif
+
+  gst_pad_push (wavparse->srcpad, buf);
+}
+
 static void
 gst_wavparse_chain (GstPad *pad, GstBuffer *buf)
 {
@@ -273,7 +328,7 @@ gst_wavparse_chain (GstPad *pad, GstBuffer *buf)
 			      NULL)));
         wavparse->need_discont = FALSE;
       }
-      gst_pad_push (wavparse->srcpad, buf);
+      gst_wavparse_push (wavparse, buf);
     }
     else
       gst_buffer_unref (buf);
@@ -364,7 +419,7 @@ gst_wavparse_chain (GstPad *pad, GstBuffer *buf)
 			"audio/raw",
 			"format",	GST_PROPS_STRING ("int"),
 			  "law",	GST_PROPS_INT (wavparse->format == GST_RIFF_WAVE_FORMAT_ALAW ? 2 : 1),
-			  "endianness",	GST_PROPS_INT (G_LITTLE_ENDIAN),
+			  "endianness",	GST_PROPS_INT (G_BYTE_ORDER),
 			  "width",	GST_PROPS_INT (8),
 			  "depth",	GST_PROPS_INT (8),
 			  "rate",	GST_PROPS_INT (wavparse->rate),
@@ -377,7 +432,7 @@ gst_wavparse_chain (GstPad *pad, GstBuffer *buf)
 			"audio/raw",
 			"format",	GST_PROPS_STRING ("int"),
 			  "law",	GST_PROPS_INT (0),
-			  "endianness",	GST_PROPS_INT (G_LITTLE_ENDIAN),
+			  "endianness",	GST_PROPS_INT (G_BYTE_ORDER),
 			  "signed",     GST_PROPS_BOOLEAN ((wavparse->width > 8) ? TRUE : FALSE),
 			  "width",	GST_PROPS_INT (wavparse->width),
 			  "depth",	GST_PROPS_INT (wavparse->width),
@@ -450,7 +505,7 @@ gst_wavparse_chain (GstPad *pad, GstBuffer *buf)
       GST_BUFFER_TIMESTAMP (newbuf) = 0;
 
       if (GST_PAD_IS_USABLE (wavparse->srcpad))
-        gst_pad_push (wavparse->srcpad, newbuf);
+        gst_wavparse_push (wavparse, newbuf);
       else
 	gst_buffer_unref (newbuf);
 
