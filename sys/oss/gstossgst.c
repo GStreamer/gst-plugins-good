@@ -282,7 +282,7 @@ gst_ossgst_get (GstPad *pad)
     }
   }
 
-  return buf;
+  return GST_DATA (buf);
 }
 
 static void 
