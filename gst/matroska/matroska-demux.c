@@ -2798,7 +2798,8 @@ gst_matroska_demux_audio_caps (GstMatroskaTrackAudioContext * audiocontext,
       g_assert (0);
 
     caps = gst_caps_new_simple ("audio/mpeg",
-        "mpegversion", G_TYPE_INT, mpegversion, NULL);
+        "mpegversion", G_TYPE_INT, mpegversion,
+        "framed", G_TYPE_BOOLEAN, TRUE, NULL);
     if (priv) {
       gst_caps_set_simple (caps, "codec_data", GST_TYPE_BUFFER, priv, NULL);
     }
