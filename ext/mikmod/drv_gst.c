@@ -78,6 +78,9 @@ MDRIVER drv_gst = {
   "mikmod",
   NULL,
 #endif
+#if (LIBMIKMOD_VERSION >= 0x030200)
+  NULL,
+#endif
   mikmod_IsThere,
   VC_SampleLoad,
   VC_SampleUnload,
