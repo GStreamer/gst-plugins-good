@@ -100,8 +100,9 @@ gst_ossformat_get (gint law, gint endianness, gboolean sign, gint width, gint de
 }
 
 void 
-gst_osscommon_init (GstOssCommon *common) 
+gst_osscommon_init (GstOssCommon *common)
 {
+  GST_DEBUG (GST_CAT_PLUGIN_INFO, "initializing osscommon");
   common->device = g_strdup ("/dev/dsp");
   common->fd = -1;
 
@@ -203,7 +204,10 @@ gst_osscommon_sync_parms (GstOssCommon *common)
   gint fragscale, frag_ln;
 
   if (common->fd == -1)
+  {
+    GST_INFO (GST_CAT_PLUGIN_INFO, "common->fd is closed, can't sync parms");
     return FALSE;
+  }
   
   if (common->fragment >> 16)
     frag = common->fragment;
@@ -372,10 +376,11 @@ gst_osscommon_open_audio (GstOssCommon *common, GstOssOpenMode mode, gchar **err
 void
 gst_osscommon_close_audio (GstOssCommon *common)
 {
-  if (common->fd < 0) 
+  GST_INFO (GST_CAT_PLUGIN_INFO, "closing audio device with fd %d", common->fd);
+  if (common->fd < 0)
     return;
 
-  close(common->fd);
+  close (common->fd);
   common->fd = -1;
 }
 

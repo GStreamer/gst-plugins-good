@@ -236,12 +236,21 @@ gst_osssink_sinkconnect (GstPad *pad, GstCaps *caps)
   GstOssSink *osssink = GST_OSSSINK (gst_pad_get_parent (pad));
 
   if (!GST_CAPS_IS_FIXED (caps))
+  {
+    GST_DEBUG (GST_CAT_NEGOTIATION, "caps not fixed, connection delayed");
     return GST_PAD_CONNECT_DELAYED;
+  }
 
   if (!gst_osscommon_parse_caps (&osssink->common, caps))
+  {
+    GST_DEBUG (GST_CAT_NEGOTIATION, 
+	       "caps couldn't be parsed, connection refused");
     return GST_PAD_CONNECT_REFUSED;
+  }
 
   if (!gst_osscommon_sync_parms (&osssink->common)) {
+    GST_DEBUG (GST_CAT_NEGOTIATION, 
+	       "caps couldn't sync parameters, connection refused");
     return GST_PAD_CONNECT_REFUSED;
   }
 
@@ -589,7 +598,12 @@ gst_osssink_change_state (GstElement *element)
     case GST_STATE_PAUSED_TO_READY:
       if (GST_FLAG_IS_SET (element, GST_OSSSINK_OPEN))
         ioctl (osssink->common.fd, SNDCTL_DSP_RESET, 0);
+      /* FIXME: this is probably totally wrong ! we already inited once,
+       * and _init just resets variables ! wtay, if you agree then remove
+       * this code ;) */
+      /*
       gst_osscommon_init (&osssink->common);
+      */
       break;
     case GST_STATE_READY_TO_NULL:
       if (GST_FLAG_IS_SET (element, GST_OSSSINK_OPEN)) {
