@@ -265,10 +265,12 @@ static gboolean
 gst_avi_demux_avih (GstAviDemux *avi_demux)
 {
   gst_riff_avih *avih;
+  guint8 *avihdata;
   GstByteStream  *bs = avi_demux->bs;
   guint32 got_bytes;
 
-  got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **)&avih, sizeof (gst_riff_avih));
+  got_bytes = gst_bytestream_peek_bytes (bs, &avihdata, sizeof (gst_riff_avih));
+  avih = (gst_riff_avih *) avihdata;
 
   if (got_bytes == sizeof (gst_riff_avih)) {
     avi_demux->avih.us_frame 	= GUINT32_FROM_LE (avih->us_frame);
@@ -311,10 +313,12 @@ static gboolean
 gst_avi_demux_strh (GstAviDemux *avi_demux)
 {
   gst_riff_strh *strh;
+  guint8 *strhdata;
   GstByteStream  *bs = avi_demux->bs;
   guint32 got_bytes;
 
-  got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **)&strh, sizeof (gst_riff_strh));
+  got_bytes = gst_bytestream_peek_bytes (bs, &strhdata, sizeof (gst_riff_strh));
+  strh = (gst_riff_strh *) strhdata;
 
   if (got_bytes == sizeof (gst_riff_strh)) {
     avi_stream_context *target;
@@ -379,20 +383,24 @@ static void
 gst_avi_demux_dmlh (GstAviDemux *avi_demux)
 {
   gst_riff_dmlh *dmlh;
+  guint8 *dmlhdata;
   GstByteStream  *bs = avi_demux->bs;
   guint32 got_bytes;
 
-  got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **)&dmlh, sizeof (gst_riff_dmlh));
+  got_bytes = gst_bytestream_peek_bytes (bs, &dmlhdata, sizeof (gst_riff_dmlh));
+  dmlh = (gst_riff_dmlh *) dmlhdata;
 }
 
 static void
 gst_avi_demux_strn (GstAviDemux *avi_demux, gint len)
 {
   gchar *name;
+  guint8 *namedata;
   GstByteStream  *bs = avi_demux->bs;
   guint32 got_bytes;
 
-  got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **)&name, len);
+  got_bytes = gst_bytestream_peek_bytes (bs, &namedata, len);
+  name = (gchar *) namedata;
   if (got_bytes != len)
     return;
 
@@ -403,13 +411,15 @@ static void
 gst_avi_demux_strf_vids (GstAviDemux *avi_demux)
 {
   gst_riff_strf_vids *strf;
+  guint8 *strfdata;
   GstPad *srcpad;
   GstCaps *newcaps = NULL, *capslist = NULL;
   avi_stream_context *stream;
   GstByteStream  *bs = avi_demux->bs;
   guint32 got_bytes;
 
-  got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **)&strf, sizeof (gst_riff_strf_vids));
+  got_bytes = gst_bytestream_peek_bytes (bs, &strfdata, sizeof (gst_riff_strf_vids));
+  strf = (gst_riff_strf_vids *) strfdata;
   if (got_bytes != sizeof (gst_riff_strf_vids))
     return;
 
@@ -503,13 +513,15 @@ static void
 gst_avi_demux_strf_auds (GstAviDemux *avi_demux)
 {
   gst_riff_strf_auds *strf;
+  guint8 *strfdata;
   GstPad *srcpad;
   GstCaps *newcaps = NULL, *capslist = NULL;
   avi_stream_context *stream;
   GstByteStream  *bs = avi_demux->bs;
   guint32 got_bytes;
 
-  got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **)&strf, sizeof (gst_riff_strf_auds));
+  got_bytes = gst_bytestream_peek_bytes (bs, &strfdata, sizeof (gst_riff_strf_auds));
+  strf = (gst_riff_strf_auds *) strfdata;
   if (got_bytes != sizeof (gst_riff_strf_auds))
     return;
 
@@ -606,13 +618,15 @@ static void
 gst_avi_demux_strf_iavs (GstAviDemux *avi_demux)
 {
   gst_riff_strf_iavs *strf;
+  guint8 *strfdata;
   GstPad *srcpad;
   GstCaps *newcaps = NULL, *capslist = NULL;
   avi_stream_context *stream;
   GstByteStream  *bs = avi_demux->bs;
   guint32 got_bytes;
 
-  got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **)&strf, sizeof (gst_riff_strf_iavs));
+  got_bytes = gst_bytestream_peek_bytes (bs, &strfdata, sizeof (gst_riff_strf_iavs));
+  strf = (gst_riff_strf_iavs *) strfdata;
   if (got_bytes != sizeof (gst_riff_strf_iavs))
     return;
 
@@ -1232,11 +1246,13 @@ gst_avi_demux_loop (GstElement *element)
   pos = gst_bytestream_tell (bs);
   do {
     gst_riff_riff *temp_chunk;
+    guint8 *tempdata;
     guint32 skipsize;
 
     /* read first two dwords to get chunktype and size */
     while (TRUE) {
-      got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **) &temp_chunk, sizeof (gst_riff_chunk));
+      got_bytes = gst_bytestream_peek_bytes (bs, &tempdata, sizeof (gst_riff_chunk));
+      temp_chunk = (gst_riff_riff *) tempdata;
       if (got_bytes < sizeof (gst_riff_chunk)) {
         if (!gst_avi_demux_handle_sink_event (avi_demux))
           return;
@@ -1252,7 +1268,8 @@ gst_avi_demux_loop (GstElement *element)
       case GST_RIFF_TAG_LIST:
         /* read complete list chunk */
         while (TRUE) {
-          got_bytes = gst_bytestream_peek_bytes (bs, (guint8 **) &temp_chunk, sizeof (gst_riff_list));
+          got_bytes = gst_bytestream_peek_bytes (bs, &tempdata, sizeof (gst_riff_list));
+	  temp_chunk = (gst_riff_riff *) tempdata;
           if (got_bytes < sizeof (gst_riff_list)) {
             if (!gst_avi_demux_handle_sink_event (avi_demux))
               return;
