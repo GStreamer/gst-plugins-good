@@ -25,7 +25,7 @@
 #include <string.h>
 
 #include <gstflacenc.h>
-#include <gst/tags/gsttagediting.h>
+#include <gst/tag/tag.h>
 #include <gst/gsttaginterface.h>
 #include "flac_compat.h"
 
@@ -182,7 +182,7 @@ flac_caps_factory (void)
   return
    gst_caps_new (
   	"flac_flac",
-  	"application/x-flac",
+  	"audio/x-flac",
 	/* gst_props_new (
  	    "rate",     	GST_PROPS_INT_RANGE (11025, 48000),
     	    "channels", 	GST_PROPS_INT_RANGE (1, 2),
@@ -214,7 +214,7 @@ gst_flacenc_base_init (gpointer g_class)
 
   raw_caps = raw_caps_factory ();
   flac_caps = flac_caps_factory ();
-  
+
   sink_template = gst_pad_template_new ("sink", GST_PAD_SINK, 
 					GST_PAD_ALWAYS, 
 					raw_caps, NULL);
@@ -369,7 +369,7 @@ gst_flacenc_sinkconnect (GstPad *pad, GstCaps *caps)
   gst_caps_get_int (caps, "rate", &flacenc->sample_rate);
   
   caps = GST_CAPS_NEW ("flacenc_srccaps",
-                       "application/x-flac",
+                       "audio/x-flac",
                          "channels", GST_PROPS_INT (flacenc->channels),
                          "rate", GST_PROPS_INT (flacenc->sample_rate));
   ret = gst_pad_try_set_caps (flacenc->srcpad, caps);
@@ -475,9 +475,9 @@ gst_flacenc_write_callback (const FLAC__SeekableStreamEncoder *encoder,
   return FLAC__STREAM_ENCODER_OK;
 }
 
-void  add_one_tag (const GstTagList *list, 
-		   const gchar *tag, 
-		   gpointer user_data)
+static void 
+add_one_tag (const GstTagList *list, const gchar *tag, 
+	     gpointer user_data)
 {
       GList *comments;
       GList *it;
@@ -486,7 +486,7 @@ void  add_one_tag (const GstTagList *list,
       comments = gst_tag_to_vorbis_comments (list, tag);
       for (it = comments; it != NULL; it = it->next) {
 	      FLAC__StreamMetadata_VorbisComment_Entry commment_entry;
-	      commment_entry.length = GUINT32_TO_LE (strlen(it->data) + 1);
+	      commment_entry.length = GUINT32_TO_LE (strlen(it->data));
 	      commment_entry.entry  =  it->data;
 	      FLAC__metadata_object_vorbiscomment_insert_comment (flacenc->meta[0], 
 								  flacenc->meta[0]->data.vorbis_comment.num_comments, 
