@@ -65,6 +65,9 @@ plugin_init (GModule *module, GstPlugin *plugin)
   GstElementFactory *enc, *dec;
   GstCaps *raw_caps, *flac_caps;
 
+  if (!gst_library_load ("gstbytestream"))
+    return FALSE;
+
   gst_plugin_set_longname (plugin, "The FLAC Lossless compressor Codec");
 
   /* create an elementfactory for the flacenc element */

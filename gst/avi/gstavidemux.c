@@ -1927,6 +1927,8 @@ plugin_init (GModule *module, GstPlugin *plugin)
     -1 /* end */
   };
 
+  if (!gst_library_load ("gstbytestream"))
+    return FALSE;
   if (!gst_library_load ("gstriff"))
     return FALSE;
 
