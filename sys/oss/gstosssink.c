@@ -490,8 +490,14 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
     if (!osssink->mute) {
 
       while (to_write > 0) {
-        gint done = write (GST_OSSELEMENT (osssink)->fd, data,
-            MIN (to_write, osssink->chunk_size));
+        gint done;
+        gint writing;
+
+        writing = MIN (to_write, osssink->chunk_size);
+
+        GST_DEBUG_OBJECT (osssink, "writing %d bytes", writing);
+        done = write (GST_OSSELEMENT (osssink)->fd, data, writing);
+        GST_DEBUG_OBJECT (osssink, "done writing %d bytes", done);
 
         if (done == -1) {
           if (errno != EINTR)
@@ -676,7 +682,7 @@ gst_osssink_change_state (GstElement * element)
     case GST_STATE_PAUSED_TO_PLAYING:
       break;
     case GST_STATE_PLAYING_TO_PAUSED:
-      ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
+      //ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
       if (!osssink->in_eos)
         result = GST_STATE_ASYNC;
       break;
