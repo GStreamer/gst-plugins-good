@@ -96,7 +96,7 @@ png_caps_factory (void)
   return gst_caps2_new_simple ("video/x-png",
       "width",     GST_TYPE_INT_RANGE, 16, 4096,
       "height",    GST_TYPE_INT_RANGE, 16, 4096,
-      "framerate", GST_TYPE_DOUBLE_RANGE, 0, G_MAXDOUBLE,
+      "framerate", GST_TYPE_DOUBLE_RANGE, 0.0, G_MAXDOUBLE,
       NULL);
 }
 
