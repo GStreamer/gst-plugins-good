@@ -298,7 +298,6 @@ gst_avi_demux_src_convert (GstPad * pad,
 {
   gboolean res = TRUE;
 
-  /*GstAviDemux *avi = GST_AVI_DEMUX (gst_pad_get_parent (pad)); */
   avi_stream_context *stream = gst_pad_get_element_private (pad);
 
   if (!stream->strh || !stream->strf.data)
@@ -371,9 +370,8 @@ gst_avi_demux_handle_src_query (GstPad * pad,
     GstQueryType type, GstFormat * format, gint64 * value)
 {
   gboolean res = TRUE;
-  GstAviDemux *demux = GST_AVI_DEMUX (gst_pad_get_parent (pad));
+  GstAviDemux *demux = GST_AVI_DEMUX (GST_PAD_PARENT (pad));
 
-  /*GstAviDemux *avi = GST_AVI_DEMUX (gst_pad_get_parent (pad)); */
   avi_stream_context *stream = gst_pad_get_element_private (pad);
 
   if (!stream->strh || !stream->strf.data)
@@ -478,7 +476,7 @@ static gboolean
 gst_avi_demux_handle_src_event (GstPad * pad, GstEvent * event)
 {
   gboolean res = TRUE;
-  GstAviDemux *avi = GST_AVI_DEMUX (gst_pad_get_parent (pad));
+  GstAviDemux *avi = GST_AVI_DEMUX (GST_PAD_PARENT (pad));
   avi_stream_context *stream;
 
   GST_CAT_DEBUG_OBJECT (GST_CAT_EVENT, avi,
@@ -2097,7 +2095,7 @@ static void
 gst_avi_demux_loop (GstPad * pad)
 {
   GstFlowReturn res;
-  GstAviDemux *avi = GST_AVI_DEMUX (gst_pad_get_parent (pad));
+  GstAviDemux *avi = GST_AVI_DEMUX (GST_PAD_PARENT (pad));
 
   GST_STREAM_LOCK (avi->sinkpad);
 
