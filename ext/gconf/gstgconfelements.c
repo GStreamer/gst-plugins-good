@@ -1,5 +1,5 @@
 /* GStreamer
- * Copyright (C) <1999> Erik Walthinsen <omega@cse.ogi.edu>
+ * (c) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,43 +21,29 @@
 #include "config.h"
 #endif
 
-#include "gst/gst-i18n-plugin.h"
+#include <gst/gst.h>
 
-#include "gstosselement.h"
-#include "gstosssink.h"
-#include "gstosssrc.h"
+#include "gstgconfelements.h"
 
-extern gchar *__gst_oss_plugin_dir;
+#include "gstgconfaudiosink.h"
+#include "gstgconfvideosink.h"
 
-GST_DEBUG_CATEGORY (oss_debug);
+GST_DEBUG_CATEGORY (gconf_debug);
 
 static gboolean
 plugin_init (GstPlugin * plugin)
 {
-  if (!gst_library_load ("gstaudio"))
-    return FALSE;
+  GST_DEBUG_CATEGORY_INIT (gconf_debug, "gconf", 0,
+      "GConf/GStreamer audio/video output wrapper elements");
 
-  if (!gst_element_register (plugin, "ossmixer", GST_RANK_SECONDARY,
-          GST_TYPE_OSSELEMENT) ||
-      !gst_element_register (plugin, "osssrc", GST_RANK_SECONDARY,
-          GST_TYPE_OSSSRC) ||
-      !gst_element_register (plugin, "osssink", GST_RANK_SECONDARY,
-          GST_TYPE_OSSSINK)) {
-    return FALSE;
-  }
-
-  GST_DEBUG_CATEGORY_INIT (oss_debug, "oss", 0, "OSS elements");
-
-#ifdef ENABLE_NLS
-  setlocale (LC_ALL, "");
-  bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
-#endif /* ENABLE_NLS */
-
-  return TRUE;
+  return gst_element_register (plugin, "gconfvideosink",
+      GST_RANK_NONE, GST_TYPE_GCONF_VIDEO_SINK) &&
+      gst_element_register (plugin, "gconfaudiosink",
+      GST_RANK_NONE, GST_TYPE_GCONF_AUDIO_SINK);
 }
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
-    "ossaudio",
-    "OSS (Open Sound System) support for GStreamer",
+    "gconfelements",
+    "Plugin contains plugins wrapping the GStreamer/GConf audio/video output settings",
     plugin_init, VERSION, GST_LICENSE, GST_PACKAGE, GST_ORIGIN)
