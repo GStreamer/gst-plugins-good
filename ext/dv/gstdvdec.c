@@ -329,7 +329,6 @@ gst_dvdec_init(GstDVDec *dvdec)
 
   gst_element_set_loop_function (GST_ELEMENT (dvdec), gst_dvdec_loop);
 
-  dvdec->pool = NULL;
   dvdec->length = 0;
   dvdec->next_ts = 0LL;
   dvdec->end_position = -1LL;
@@ -833,23 +832,7 @@ gst_dvdec_loop (GstElement *element)
     guint8 *outframe_ptrs[3];
     gint outframe_pitches[3];
 
-    /* try to grab a pool */
-    if (!dvdec->pool) {
-      dvdec->pool = gst_pad_get_bufferpool (dvdec->videosrcpad);
-    }
-
-    outbuf = NULL;
-    /* try to get a buffer from the pool if we have one */
-    if (dvdec->pool) {
-      outbuf = gst_buffer_new_from_pool (dvdec->pool, 0, 0);
-    }
-    /* no buffer from pool, allocate one ourselves */
-    if (!outbuf) {
-      outbuf = gst_buffer_new ();
-    
-      GST_BUFFER_SIZE (outbuf) = (720 * height) * dvdec->bpp;
-      GST_BUFFER_DATA (outbuf) = g_malloc (GST_BUFFER_SIZE (outbuf));
-    }
+    outbuf = gst_buffer_new_and_alloc ((720 * height) * dvdec->bpp);
     
     outframe = GST_BUFFER_DATA (outbuf);
 
@@ -900,9 +883,6 @@ gst_dvdec_change_state (GstElement *element)
     case GST_STATE_PAUSED_TO_PLAYING:
       break;
     case GST_STATE_PLAYING_TO_PAUSED:
-      if (dvdec->pool)
-	gst_buffer_pool_unref (dvdec->pool);
-      dvdec->pool = NULL;
       break;
     case GST_STATE_PAUSED_TO_READY:
       dv_decoder_free (dvdec->decoder);
