@@ -42,6 +42,7 @@ typedef struct _GstAutoAudioSink {
 
   /* explicit pointers to stuff used */
   GstPad *pad;
+  gboolean init;
 } GstAutoAudioSink;
 
 typedef struct _GstAutoAudioSinkClass {

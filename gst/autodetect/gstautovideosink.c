@@ -29,7 +29,9 @@
 static void gst_auto_video_sink_base_init (GstAutoVideoSinkClass * klass);
 static void gst_auto_video_sink_class_init (GstAutoVideoSinkClass * klass);
 static void gst_auto_video_sink_init (GstAutoVideoSink * sink);
-static void gst_auto_video_sink_detect (GstAutoVideoSink * sink);
+static void gst_auto_video_sink_detect (GstAutoVideoSink * sink, gboolean fake);
+static GstElementStateReturn
+gst_auto_video_sink_change_state (GstElement * element);
 
 static GstBinClass *parent_class = NULL;
 
@@ -81,13 +83,18 @@ gst_auto_video_sink_base_init (GstAutoVideoSinkClass * klass)
 static void
 gst_auto_video_sink_class_init (GstAutoVideoSinkClass * klass)
 {
+  GstElementClass *eklass = GST_ELEMENT_CLASS (klass);
+
   parent_class = g_type_class_ref (GST_TYPE_BIN);
+
+  eklass->change_state = gst_auto_video_sink_change_state;
 }
 
 static void
 gst_auto_video_sink_init (GstAutoVideoSink * sink)
 {
-  gst_auto_video_sink_detect (sink);
+  gst_auto_video_sink_detect (sink, TRUE);
+  sink->init = FALSE;
 }
 
 static gboolean
@@ -152,12 +159,14 @@ gst_auto_video_sink_find_best (GstAutoVideoSink * sink)
 }
 
 static void
-gst_auto_video_sink_detect (GstAutoVideoSink * sink)
+gst_auto_video_sink_detect (GstAutoVideoSink * sink, gboolean fake)
 {
   GstElement *esink;
 
   /* find element */
-  if (!(esink = gst_auto_video_sink_find_best (sink))) {
+  if (fake) {
+    esink = gst_element_factory_make ("fakesink", "temporary-sink");
+  } else if (!(esink = gst_auto_video_sink_find_best (sink))) {
     GST_ELEMENT_ERROR (sink, LIBRARY, INIT, (NULL),
         ("Failed to find a supported video sink"));
     return;
@@ -167,4 +176,18 @@ gst_auto_video_sink_detect (GstAutoVideoSink * sink)
   gst_bin_add (GST_BIN (sink), esink);
   gst_element_add_ghost_pad (GST_ELEMENT (sink),
       gst_element_get_pad (esink, "sink"), "sink");
+}
+
+static GstElementStateReturn
+gst_auto_video_sink_change_state (GstElement * element)
+{
+  GstAutoVideoSink *sink = GST_AUTO_VIDEO_SINK (element);
+
+  if (GST_STATE_TRANSITION (element) == GST_STATE_NULL_TO_READY && !sink->init) {
+    gst_auto_video_sink_detect (sink, FALSE);
+    if (!sink->init)
+      return GST_STATE_FAILURE;
+  }
+
+  return GST_ELEMENT_CLASS (parent_class)->change_state (element);
 }
