@@ -29,19 +29,17 @@
 
 #include "gstosselement.h"
 #include <gst/audio/audioclock.h>
+#include <gst/audio/gstbaseaudiosink.h>
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_OSSSINK \
-  (gst_osssink_get_type())
-#define GST_OSSSINK(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_OSSSINK,GstOssSink))
-#define GST_OSSSINK_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_OSSSINK,GstOssSinkClass))
-#define GST_IS_OSSSINK(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_OSSSINK))
-#define GST_IS_OSSSINK_CLASS(obj) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_OSSSINK))
+#define GST_TYPE_OSSSINK          (gst_osssink_get_type())
+#define GST_OSSSINK(obj)          (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_OSSSINK,GstOssSink))
+#define GST_OSSSINK_CLASS(klass)  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_OSSSINK,GstOssSinkClass))
+#define GST_IS_OSSSINK(obj)       (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_OSSSINK))
+#define GST_IS_OSSSINK_CLASS(obj) (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_OSSSINK))
+
+#define GST_OSSELEMENT_GET(obj)  GST_OSSELEMENT (obj->element)
 
 typedef enum {
   GST_OSSSINK_OPEN		= GST_ELEMENT_FLAG_LAST,
@@ -53,15 +51,13 @@ typedef struct _GstOssSink GstOssSink;
 typedef struct _GstOssSinkClass GstOssSinkClass;
 
 struct _GstOssSink {
-  GstOssElement	 element;
+  GstBaseAudioSink    sink;
 
-  GstPad 	*sinkpad;
+  GstOssElement	*element;
 
   GstClock 	*provided_clock;
-  GstClock 	*clock;
   gboolean	 sync;
   guint64	 handled;
-  gboolean	 in_eos;
 
   gboolean 	 mute;
   guint 	 bufsize;
@@ -69,10 +65,7 @@ struct _GstOssSink {
 };
 
 struct _GstOssSinkClass {
-  GstOssElementClass parent_class;
-
-  /* signals */
-  void (*handoff) (GstElement *element,GstPad *pad);
+  GstBaseAudioSinkClass parent_class;
 };
 
 GType gst_osssink_get_type(void);

@@ -43,6 +43,7 @@
 #endif /* HAVE_OSS_INCLUDE_IN_SYS */
 
 #include "gstosssink.h"
+#include "gstossdmabuffer.h"
 
 /* elementfactory information */
 static GstElementDetails gst_osssink_details =
@@ -58,9 +59,9 @@ static void gst_osssink_init (GstOssSink * osssink);
 static void gst_osssink_dispose (GObject * object);
 
 static GstElementStateReturn gst_osssink_change_state (GstElement * element);
-static void gst_osssink_set_clock (GstElement * element, GstClock * clock);
 static GstClock *gst_osssink_get_clock (GstElement * element);
 static GstClockTime gst_osssink_get_time (GstClock * clock, gpointer data);
+static GstRingBuffer *gst_osssink_create_ringbuffer (GstBaseAudioSink * bsink);
 
 static const GstFormat *gst_osssink_get_formats (GstPad * pad);
 static gboolean gst_osssink_convert (GstPad * pad, GstFormat src_format,
@@ -71,23 +72,26 @@ static gboolean gst_osssink_query (GstElement * element, GstQueryType type,
 static gboolean gst_osssink_sink_query (GstPad * pad, GstQueryType type,
     GstFormat * format, gint64 * value);
 
-static GstCaps *gst_osssink_getcaps (GstPad * pad);
-static gboolean gst_osssink_setcaps (GstPad * pad, GstCaps * caps);
+static GstCaps *gst_osssink_getcaps (GstBaseSink * bsink);
+
+//static gboolean gst_osssink_setcaps (GstBaseSink *bsink, GstCaps *caps);
 
 static void gst_osssink_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
 static void gst_osssink_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 
-static GstFlowReturn gst_osssink_chain (GstPad * pad, GstBuffer * buffer);
-static gboolean gst_osssink_handle_event (GstPad * pad, GstEvent * event);
-
 /* OssSink signals and args */
 enum
 {
-  SIGNAL_HANDOFF,
   LAST_SIGNAL
 };
+
+#define DEFAULT_MUTE FALSE
+#define DEFAULT_FRAGMENT 6
+#define DEFAULT_BUFFER_SIZE 4096
+#define DEFAULT_SYNC TRUE
+#define DEFAULT_CHUNK_SIZE 4096
 
 enum
 {
@@ -118,7 +122,8 @@ static GstStaticPadTemplate osssink_sink_factory =
     );
 
 static GstElementClass *parent_class = NULL;
-static guint gst_osssink_signals[LAST_SIGNAL] = { 0 };
+
+/* static guint gst_osssink_signals[LAST_SIGNAL] = { 0 }; */
 
 GType
 gst_osssink_get_type (void)
@@ -139,7 +144,7 @@ gst_osssink_get_type (void)
     };
 
     osssink_type =
-        g_type_register_static (GST_TYPE_OSSELEMENT, "GstOssSink",
+        g_type_register_static (GST_TYPE_BASEAUDIOSINK, "GstOssSink",
         &osssink_info, 0);
   }
 
@@ -159,6 +164,12 @@ gst_osssink_dispose (GObject * object)
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
+static GstStaticPadTemplate *
+gst_osssink_gettemplate (GstBaseSink * bsink)
+{
+  return &osssink_sink_factory;
+}
+
 static void
 gst_osssink_base_init (gpointer g_class)
 {
@@ -173,114 +184,119 @@ gst_osssink_class_init (GstOssSinkClass * klass)
 {
   GObjectClass *gobject_class;
   GstElementClass *gstelement_class;
+  GstBaseSinkClass *gstbasesink_class;
+  GstBaseAudioSinkClass *gstbaseaudiosink_class;
 
   gobject_class = (GObjectClass *) klass;
   gstelement_class = (GstElementClass *) klass;
+  gstbasesink_class = (GstBaseSinkClass *) klass;
+  gstbaseaudiosink_class = (GstBaseAudioSinkClass *) klass;
 
-  parent_class = g_type_class_ref (GST_TYPE_OSSELEMENT);
+  parent_class = g_type_class_ref (GST_TYPE_BASEAUDIOSINK);
 
   gobject_class->set_property = gst_osssink_set_property;
   gobject_class->get_property = gst_osssink_get_property;
 
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_MUTE,
       g_param_spec_boolean ("mute", "Mute", "Mute the audio",
-          FALSE, G_PARAM_READWRITE));
+          DEFAULT_MUTE, G_PARAM_READWRITE));
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_SYNC,
       g_param_spec_boolean ("sync", "Sync",
-          "If syncing on timestamps should be enabled", TRUE,
+          "If syncing on timestamps should be enabled", DEFAULT_SYNC,
           G_PARAM_READWRITE));
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_FRAGMENT,
       g_param_spec_int ("fragment", "Fragment",
           "The fragment as 0xMMMMSSSS (MMMM = total fragments, 2^SSSS = fragment size)",
-          0, G_MAXINT, 6, G_PARAM_READWRITE));
+          0, G_MAXINT, DEFAULT_FRAGMENT, G_PARAM_READWRITE));
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_BUFFER_SIZE,
       g_param_spec_uint ("buffer_size", "Buffer size",
-          "Size of buffers in osssink's bufferpool (bytes)", 0, G_MAXINT, 4096,
-          G_PARAM_READWRITE));
+          "Size of buffers in osssink's bufferpool (bytes)", 0, G_MAXINT,
+          DEFAULT_BUFFER_SIZE, G_PARAM_READWRITE));
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_CHUNK_SIZE,
       g_param_spec_uint ("chunk_size", "Chunk size",
-          "Write data in chunk sized buffers", 0, G_MAXUINT, 4096,
+          "Write data in chunk sized buffers", 0, G_MAXUINT, DEFAULT_CHUNK_SIZE,
           G_PARAM_READWRITE));
-
-  gst_osssink_signals[SIGNAL_HANDOFF] =
-      g_signal_new ("handoff", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-      G_STRUCT_OFFSET (GstOssSinkClass, handoff), NULL, NULL,
-      g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 
   gobject_class->dispose = gst_osssink_dispose;
 
   gstelement_class->change_state = GST_DEBUG_FUNCPTR (gst_osssink_change_state);
   gstelement_class->query = GST_DEBUG_FUNCPTR (gst_osssink_query);
-  gstelement_class->set_clock = gst_osssink_set_clock;
   gstelement_class->get_clock = gst_osssink_get_clock;
 
+  gstbasesink_class->get_template = GST_DEBUG_FUNCPTR (gst_osssink_gettemplate);
+  gstbasesink_class->get_caps = GST_DEBUG_FUNCPTR (gst_osssink_getcaps);
+  //gstbasesink_class->set_caps = GST_DEBUG_FUNCPTR (gst_osssink_setcaps);
+
+  gstbaseaudiosink_class->create_ringbuffer =
+      GST_DEBUG_FUNCPTR (gst_osssink_create_ringbuffer);
 }
 
 static void
 gst_osssink_init (GstOssSink * osssink)
 {
-  osssink->sinkpad =
-      gst_pad_new_from_template (gst_static_pad_template_get
-      (&osssink_sink_factory), "sink");
-  gst_element_add_pad (GST_ELEMENT (osssink), osssink->sinkpad);
-  gst_pad_set_getcaps_function (osssink->sinkpad, gst_osssink_getcaps);
-  gst_pad_set_setcaps_function (osssink->sinkpad, gst_osssink_setcaps);
-  //gst_pad_set_fixate_function (osssink->sinkpad, gst_osssink_sink_fixate);
-  gst_pad_set_convert_function (osssink->sinkpad, gst_osssink_convert);
-  gst_pad_set_query_function (osssink->sinkpad, gst_osssink_sink_query);
-  gst_pad_set_query_type_function (osssink->sinkpad,
-      gst_osssink_get_query_types);
-  gst_pad_set_formats_function (osssink->sinkpad, gst_osssink_get_formats);
+  GstPad *sinkpad;
 
-  gst_pad_set_event_function (osssink->sinkpad, gst_osssink_handle_event);
-  gst_pad_set_chain_function (osssink->sinkpad, gst_osssink_chain);
+  sinkpad = GST_BASESINK_PAD (osssink);
+
+  osssink->element = g_object_new (GST_TYPE_OSSELEMENT, NULL);
+
+  gst_pad_set_convert_function (sinkpad, gst_osssink_convert);
+  gst_pad_set_query_function (sinkpad, gst_osssink_sink_query);
+  gst_pad_set_query_type_function (sinkpad, gst_osssink_get_query_types);
+  gst_pad_set_formats_function (sinkpad, gst_osssink_get_formats);
 
   GST_DEBUG ("initializing osssink");
-  osssink->bufsize = 4096;
-  osssink->chunk_size = 4096;
-  osssink->mute = FALSE;
-  osssink->sync = TRUE;
+
+  osssink->bufsize = DEFAULT_BUFFER_SIZE;
+  osssink->chunk_size = DEFAULT_CHUNK_SIZE;
+  osssink->mute = DEFAULT_MUTE;
+  osssink->sync = DEFAULT_SYNC;
+
   osssink->provided_clock =
       gst_audio_clock_new ("ossclock", gst_osssink_get_time, osssink);
   gst_audio_clock_set_active (GST_AUDIO_CLOCK (osssink->provided_clock), TRUE);
   gst_object_set_parent (GST_OBJECT (osssink->provided_clock),
       GST_OBJECT (osssink));
+
   osssink->handled = 0;
 }
 
+/*
 static gboolean
-gst_osssink_setcaps (GstPad * pad, GstCaps * caps)
+gst_osssink_setcaps (GstBaseSink *bsink, GstCaps *caps)
 {
-  GstOssSink *osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
+  GstOssSink *osssink = GST_OSSSINK (bsink);
 
-  if (!gst_osselement_parse_caps (GST_OSSELEMENT (osssink), caps)) {
+  if (!gst_osselement_parse_caps (GST_OSSELEMENT_GET (osssink), caps)) {
     GST_ELEMENT_ERROR (osssink, CORE, NEGOTIATION, (NULL),
-        ("received unkown format"));
+       ("received unkown format"));
     gst_element_abort_preroll (GST_ELEMENT (osssink));
     return FALSE;
   }
-  if (!gst_osselement_sync_parms (GST_OSSELEMENT (osssink))) {
+  if (!gst_osselement_sync_parms (GST_OSSELEMENT_GET (osssink))) {
     GST_ELEMENT_ERROR (osssink, CORE, NEGOTIATION, (NULL),
-        ("received unkown format"));
+       ("received unkown format"));
     gst_element_abort_preroll (GST_ELEMENT (osssink));
     return FALSE;
   }
-
   return TRUE;
 }
+*/
 
 static GstCaps *
-gst_osssink_getcaps (GstPad * pad)
+gst_osssink_getcaps (GstBaseSink * bsink)
 {
-  GstOssSink *osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
+  GstOssSink *osssink = GST_OSSSINK (bsink);
   GstCaps *caps;
 
-  gst_osselement_probe_caps (GST_OSSELEMENT (osssink));
+  gst_osselement_probe_caps (GST_OSSELEMENT_GET (osssink));
 
-  if (GST_OSSELEMENT (osssink)->probed_caps == NULL) {
-    caps = gst_caps_copy (gst_pad_get_pad_template_caps (pad));
+  if (GST_OSSELEMENT_GET (osssink)->probed_caps == NULL) {
+    caps =
+        gst_caps_copy (gst_pad_get_pad_template_caps (GST_BASESINK_PAD
+            (bsink)));
   } else {
-    caps = gst_caps_copy (GST_OSSELEMENT (osssink)->probed_caps);
+    caps = gst_caps_ref (GST_OSSELEMENT_GET (osssink)->probed_caps);
   }
 
   return caps;
@@ -292,18 +308,19 @@ gst_osssink_get_delay (GstOssSink * osssink)
   gint delay = 0;
   gint ret;
 
-  if (GST_OSSELEMENT (osssink)->fd == -1)
+  if (GST_OSSELEMENT_GET (osssink)->fd == -1)
     return 0;
 
 #ifdef SNDCTL_DSP_GETODELAY
-  ret = ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_GETODELAY, &delay);
+  ret = ioctl (GST_OSSELEMENT_GET (osssink)->fd, SNDCTL_DSP_GETODELAY, &delay);
 #else
   ret = -1;
 #endif
   if (ret < 0) {
     audio_buf_info info;
 
-    if (ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_GETOSPACE, &info) < 0) {
+    if (ioctl (GST_OSSELEMENT_GET (osssink)->fd, SNDCTL_DSP_GETOSPACE,
+            &info) < 0) {
       delay = 0;
     } else {
       delay = (info.fragstotal * info.fragsize) - info.bytes;
@@ -320,25 +337,14 @@ gst_osssink_get_time (GstClock * clock, gpointer data)
   gint delay;
   GstClockTime res;
 
-  if (!GST_OSSELEMENT (osssink)->bps)
+  if (!GST_OSSELEMENT_GET (osssink)->bps)
     return 0;
 
   delay = gst_osssink_get_delay (osssink);
 
-  /* sometimes delay is bigger than the number of bytes sent to the device,
-   * which screws up this calculation, we assume that everything is still
-   * in the device then
-   * thomas: with proper handling of the return value, this doesn't seem to
-   * happen anymore, so remove the second code path after april 2004 */
-  if (delay > (gint64) osssink->handled) {
-    /*g_warning ("Delay %d > osssink->handled %" G_GUINT64_FORMAT
-       ", setting to osssink->handled",
-       delay, osssink->handled); */
-    delay = osssink->handled;
-  }
   res =
       ((gint64) osssink->handled -
-      delay) * GST_SECOND / GST_OSSELEMENT (osssink)->bps;
+      delay) * GST_SECOND / GST_OSSELEMENT_GET (osssink)->bps;
   if (res < 0)
     res = 0;
 
@@ -355,138 +361,34 @@ gst_osssink_get_clock (GstElement * element)
   return GST_CLOCK (osssink->provided_clock);
 }
 
-static void
-gst_osssink_set_clock (GstElement * element, GstClock * clock)
+static GstRingBuffer *
+gst_osssink_create_ringbuffer (GstBaseAudioSink * bsink)
 {
-  GstOssSink *osssink;
-
-  osssink = GST_OSSSINK (element);
-
-  osssink->clock = clock;
+  return GST_RINGBUFFER (g_object_new (GST_TYPE_OSSDMABUFFER, NULL));
 }
 
+#if 0
 static GstFlowReturn
-gst_osssink_finish_preroll (GstOssSink * osssink, GstPad * pad)
-{
-  GstFlowReturn result = GST_FLOW_OK;
-
-  /* grab state change lock */
-  GST_STATE_LOCK (osssink);
-  /* if we are going to PAUSED, we can commit the state change */
-  if (GST_STATE_PENDING (osssink) == GST_STATE_PAUSED) {
-    gst_element_commit_state (GST_ELEMENT (osssink));
-  }
-  /* if we are paused we need to wait for playing to continue */
-  if (GST_STATE (osssink) == GST_STATE_PAUSED) {
-    GST_DEBUG_OBJECT (osssink,
-        "element %s wants to finish preroll", GST_ELEMENT_NAME (osssink));
-
-    /* here we wait for the next state change */
-    while (GST_STATE (osssink) == GST_STATE_PAUSED) {
-      if (GST_RPAD_IS_FLUSHING (pad)) {
-        GST_DEBUG_OBJECT (osssink, "pad is flushing");
-        result = GST_FLOW_UNEXPECTED;
-        goto done;
-      }
-
-      GST_DEBUG_OBJECT (osssink, "waiting for next state change");
-      GST_STATE_WAIT (osssink);
-      GST_DEBUG_OBJECT (osssink, "got unlocked, maybe a state change");
-
-      if (GST_RPAD_IS_FLUSHING (pad)) {
-        GST_DEBUG_OBJECT (osssink, "pad is flushing");
-        result = GST_FLOW_UNEXPECTED;
-        goto done;
-      }
-    }
-
-    /* check if we got playing */
-    if (GST_STATE (osssink) != GST_STATE_PLAYING) {
-      /* not playing, we can't accept the buffer */
-      result = GST_FLOW_WRONG_STATE;
-    }
-
-    GST_DEBUG_OBJECT (osssink, "done preroll");
-  }
-done:
-  GST_STATE_UNLOCK (osssink);
-
-  return result;
-}
-
-static gboolean
-gst_osssink_handle_event (GstPad * pad, GstEvent * event)
+gst_osssink_render (GstBaseSink * bsink, GstBuffer * buf)
 {
   GstOssSink *osssink;
-  gboolean result = TRUE;
-
-  osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
-
-  switch (GST_EVENT_TYPE (event)) {
-    case GST_EVENT_EOS:
-
-      GST_STREAM_LOCK (pad);
-      ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_SYNC, 0);
-      gst_osssink_finish_preroll (osssink, pad);
-      gst_element_post_message (GST_ELEMENT (osssink),
-          gst_message_new_eos (GST_OBJECT (osssink)));
-      GST_STATE_LOCK (osssink);
-      osssink->in_eos = TRUE;
-      GST_STATE_UNLOCK (osssink);
-      GST_STREAM_UNLOCK (pad);
-      break;
-    case GST_EVENT_FLUSH:
-      /* make sure we are not blocked on anything */
-      ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
-
-      /* unlock from a possible state change/preroll */
-      GST_STATE_LOCK (osssink);
-      osssink->in_eos = FALSE;
-      g_cond_broadcast (GST_STATE_GET_COND (osssink));
-      GST_STATE_UNLOCK (osssink);
-      /* now we are completely unblocked and the _chain method
-       * will return */
-      result = TRUE;
-      break;
-    default:
-      break;
-  }
-
-  return result;
-}
-
-static GstFlowReturn
-gst_osssink_chain (GstPad * pad, GstBuffer * buf)
-{
-  GstOssSink *osssink;
-
-  //GstClockTimeDiff buftime, soundtime, elementtime;
   guchar *data;
   guint to_write;
 
-  //gint delay;
-  GstFlowReturn result = GST_FLOW_OK;
-
   /* this has to be an audio buffer */
-  osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
+  osssink = GST_OSSSINK (bsink);
 
-  if (!GST_OSSELEMENT (osssink)->bps) {
+  if (!GST_OSSELEMENT_GET (osssink)->bps) {
     gst_buffer_unref (buf);
     GST_ELEMENT_ERROR (osssink, CORE, NEGOTIATION, (NULL),
         ("format wasn't negotiated before chain function"));
     return GST_FLOW_NOT_NEGOTIATED;
   }
 
-  GST_STREAM_LOCK (pad);
-  result = gst_osssink_finish_preroll (osssink, pad);
-  if (result != GST_FLOW_OK) {
-    goto done;
-  }
-
   data = GST_BUFFER_DATA (buf);
   to_write = GST_BUFFER_SIZE (buf);
 
-  if (GST_OSSELEMENT (osssink)->fd >= 0 && to_write > 0) {
+  if (GST_OSSELEMENT_GET (osssink)->fd >= 0 && to_write > 0) {
     if (!osssink->mute) {
 
       while (to_write > 0) {
@@ -496,7 +398,7 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
         writing = MIN (to_write, osssink->chunk_size);
 
         GST_DEBUG_OBJECT (osssink, "writing %d bytes", writing);
-        done = write (GST_OSSELEMENT (osssink)->fd, data, writing);
+        done = write (GST_OSSELEMENT_GET (osssink)->fd, data, writing);
         GST_DEBUG_OBJECT (osssink, "done writing %d bytes", done);
 
         if (done == -1) {
@@ -512,13 +414,9 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
       g_warning ("muting osssinks unimplemented wrt clocks!");
     }
   }
-
-done:
-  GST_STREAM_UNLOCK (pad);
-  gst_buffer_unref (buf);
-
-  return result;
+  return GST_FLOW_OK;
 }
+#endif
 
 static const GstFormat *
 gst_osssink_get_formats (GstPad * pad)
@@ -541,7 +439,7 @@ gst_osssink_convert (GstPad * pad, GstFormat src_format, gint64 src_value,
 
   osssink = GST_OSSSINK (GST_PAD_PARENT (pad));
 
-  return gst_osselement_convert (GST_OSSELEMENT (osssink),
+  return gst_osselement_convert (GST_OSSELEMENT_GET (osssink),
       src_format, src_value, dest_format, dest_value);
 }
 
@@ -576,16 +474,24 @@ gst_osssink_sink_query (GstPad * pad, GstQueryType type, GstFormat * format,
       break;
     case GST_QUERY_POSITION:
       if (!gst_osssink_convert (pad,
-              GST_FORMAT_TIME, gst_element_get_time (GST_ELEMENT (osssink)),
+              GST_FORMAT_TIME, gst_osssink_get_time (NULL, osssink),
               format, value)) {
         res = FALSE;
       }
       break;
     default:
-      res =
-          gst_pad_query (gst_pad_get_peer (osssink->sinkpad), type, format,
-          value);
+    {
+      GstPad *peer;
+
+      peer = gst_pad_get_peer (pad);
+      if (peer) {
+        res = gst_pad_query (peer, type, format, value);
+        gst_object_unref (GST_OBJECT (peer));
+      } else {
+        res = FALSE;
+      }
       break;
+    }
   }
 
   return res;
@@ -595,9 +501,8 @@ static gboolean
 gst_osssink_query (GstElement * element, GstQueryType type, GstFormat * format,
     gint64 * value)
 {
-  GstOssSink *osssink = GST_OSSSINK (element);
-
-  return gst_osssink_sink_query (osssink->sinkpad, type, format, value);
+  return gst_osssink_sink_query (GST_BASESINK_PAD (element), type, format,
+      value);
 }
 
 static void
@@ -614,8 +519,8 @@ gst_osssink_set_property (GObject * object, guint prop_id, const GValue * value,
       g_object_notify (G_OBJECT (osssink), "mute");
       break;
     case ARG_FRAGMENT:
-      GST_OSSELEMENT (osssink)->fragment = g_value_get_int (value);
-      gst_osselement_sync_parms (GST_OSSELEMENT (osssink));
+      GST_OSSELEMENT_GET (osssink)->fragment = g_value_get_int (value);
+      gst_osselement_sync_parms (GST_OSSELEMENT_GET (osssink));
       break;
     case ARG_BUFFER_SIZE:
       osssink->bufsize = g_value_get_uint (value);
@@ -647,7 +552,7 @@ gst_osssink_get_property (GObject * object, guint prop_id, GValue * value,
       g_value_set_boolean (value, osssink->mute);
       break;
     case ARG_FRAGMENT:
-      g_value_set_int (value, GST_OSSELEMENT (osssink)->fragment);
+      g_value_set_int (value, GST_OSSELEMENT_GET (osssink)->fragment);
       break;
     case ARG_BUFFER_SIZE:
       g_value_set_uint (value, osssink->bufsize);
@@ -668,28 +573,21 @@ static GstElementStateReturn
 gst_osssink_change_state (GstElement * element)
 {
   GstOssSink *osssink;
-  GstElementStateReturn result = GST_STATE_SUCCESS;
+  GstOssElement *oss;
 
   osssink = GST_OSSSINK (element);
+  oss = GST_OSSELEMENT_GET (osssink);
 
   switch (GST_STATE_TRANSITION (element)) {
     case GST_STATE_NULL_TO_READY:
       break;
     case GST_STATE_READY_TO_PAUSED:
-      if (!osssink->in_eos)
-        result = GST_STATE_ASYNC;
       break;
     case GST_STATE_PAUSED_TO_PLAYING:
       break;
     case GST_STATE_PLAYING_TO_PAUSED:
-      //ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
-      if (!osssink->in_eos)
-        result = GST_STATE_ASYNC;
       break;
     case GST_STATE_PAUSED_TO_READY:
-      ioctl (GST_OSSELEMENT (osssink)->fd, SNDCTL_DSP_RESET, 0);
-      gst_osselement_reset (GST_OSSELEMENT (osssink));
-      osssink->handled = 0;
       break;
     case GST_STATE_READY_TO_NULL:
       break;
@@ -697,8 +595,5 @@ gst_osssink_change_state (GstElement * element)
       break;
   }
 
-  if (GST_ELEMENT_CLASS (parent_class)->change_state)
-    GST_ELEMENT_CLASS (parent_class)->change_state (element);
-
-  return result;
+  return GST_ELEMENT_CLASS (parent_class)->change_state (element);
 }

@@ -51,6 +51,7 @@ typedef struct _GstOssElementClass GstOssElementClass;
 typedef enum {
   GST_OSSELEMENT_READ,
   GST_OSSELEMENT_WRITE,
+  GST_OSSELEMENT_MIXER,
 } GstOssOpenMode;
 
 typedef struct _GstOssDeviceCombination {
@@ -115,8 +116,12 @@ gboolean 	gst_osselement_parse_caps 	(GstOssElement *oss,
 gboolean	gst_osselement_merge_fixed_caps (GstOssElement *oss,
 						 GstCaps      *caps);
 	
+gboolean 	gst_osselement_open_audio 	(GstOssElement *oss, GstOssOpenMode mode);
 gboolean 	gst_osselement_sync_parms 	(GstOssElement *oss);
 void		gst_osselement_reset 		(GstOssElement *oss);
+void 		gst_osselement_close_audio 	(GstOssElement *oss);
+
+	
 
 gboolean 	gst_osselement_convert 	 	(GstOssElement *oss, 
 						 GstFormat      src_format,

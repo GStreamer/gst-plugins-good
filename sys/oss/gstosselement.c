@@ -78,7 +78,6 @@ static void gst_osselement_set_property (GObject * object,
     guint prop_id, const GValue * value, GParamSpec * pspec);
 static void gst_osselement_get_property (GObject * object,
     guint prop_id, GValue * value, GParamSpec * pspec);
-static GstElementStateReturn gst_osselement_change_state (GstElement * element);
 
 static GstElementClass *parent_class = NULL;
 
@@ -166,8 +165,6 @@ gst_osselement_class_init (GstOssElementClass * klass)
           NULL, G_PARAM_READABLE));
 
   gobject_class->finalize = gst_osselement_finalize;
-
-  gstelement_class->change_state = gst_osselement_change_state;
 }
 
 static const GList *
@@ -606,8 +603,10 @@ gst_osselement_sync_parms (GstOssElement * oss)
 
   /* gint fragscale, frag_ln; */
 
-  if (oss->fd == -1)
+  if (oss->fd == -1) {
+    GST_INFO ("osselement: no fd");
     return FALSE;
+  }
 
   if ((oss->fragment & 0xFFFF) == 0) {
     frag = 0;
@@ -681,31 +680,16 @@ gst_osselement_sync_parms (GstOssElement * oss)
   return TRUE;
 }
 
-static gboolean
-gst_osselement_open_audio (GstOssElement * oss)
+gboolean
+gst_osselement_open_audio (GstOssElement * oss, GstOssOpenMode mode)
 {
   gint caps;
-  GstOssOpenMode mode = GST_OSSELEMENT_READ;
-  const GList *padlist;
 
   g_return_val_if_fail (oss->fd == -1, FALSE);
   GST_INFO ("osselement: attempting to open sound device");
 
-  /* Ok, so how do we open the device? We assume that we have (max.) one
-   * pad, and if this is a sinkpad, we're osssink (w). else, we're osssrc (r) */
-  GST_LOCK (oss);
-  padlist = GST_ELEMENT (oss)->pads;
-  if (padlist != NULL) {
-    GstPad *firstpad = padlist->data;
-
-    if (GST_PAD_IS_SINK (firstpad)) {
-      mode = GST_OSSELEMENT_WRITE;
-    }
-    GST_UNLOCK (oss);
-  } else {
-    GST_UNLOCK (oss);
+  if (mode == GST_OSSELEMENT_MIXER)
     goto do_mixer;
-  }
 
   /* first try to open the sound card */
   if (mode == GST_OSSELEMENT_WRITE) {
@@ -831,7 +815,7 @@ do_mixer:
   return TRUE;
 }
 
-static void
+void
 gst_osselement_close_audio (GstOssElement * oss)
 {
   gst_ossmixer_free_list (oss);
@@ -973,34 +957,6 @@ gst_osselement_get_property (GObject * object,
       break;
   }
 }
-
-static GstElementStateReturn
-gst_osselement_change_state (GstElement * element)
-{
-  GstOssElement *oss = GST_OSSELEMENT (element);
-
-  switch (GST_STATE_TRANSITION (element)) {
-    case GST_STATE_NULL_TO_READY:
-      if (!gst_osselement_open_audio (oss)) {
-        return GST_STATE_FAILURE;
-      }
-      GST_INFO ("osselement: opened sound device");
-      break;
-    case GST_STATE_READY_TO_NULL:
-      gst_osselement_close_audio (oss);
-      gst_osselement_reset (oss);
-      GST_INFO ("osselement: closed sound device");
-      break;
-    default:
-      break;
-  }
-
-  if (GST_ELEMENT_CLASS (parent_class)->change_state)
-    return GST_ELEMENT_CLASS (parent_class)->change_state (element);
-
-  return GST_STATE_SUCCESS;
-}
-
 
 /* rate probing code */
 
