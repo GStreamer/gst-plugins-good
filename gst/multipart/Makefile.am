@@ -1,6 +1,6 @@
 plugindir = $(libdir)/gstreamer-@GST_MAJORMINOR@
 
-plugin_LTLIBRARIES = libmultipart.la
+plugin_LTLIBRARIES = libgstmultipart.la
 
 libmultipart_la_SOURCES = multipart.c multipartdemux.c multipartmux.c
 libmultipart_la_CFLAGS = $(GST_CFLAGS)
