@@ -42,7 +42,12 @@ enum
 enum
 {
   /* FILL ME */
-  ARG_0
+  ARG_0,
+  ARG_SAMPLE_RATE,
+  ARG_PAYLOAD_TYPE,
+  ARG_CHANNELS,
+  ARG_MTU,
+  ARG_RTPMAP
 };
 
 static GstStaticPadTemplate gst_rtpL16enc_sink_template =
@@ -50,7 +55,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("audio/x-raw-int, "
-        "endianness = (int) BYTE_ORDER, "
+        "endianness = (int) { LITTLE_ENDIAN, BIG_ENDIAN }, "
         "signed = (boolean) true, "
         "width = (int) 16, "
         "depth = (int) 16, "
@@ -64,6 +69,7 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_STATIC_CAPS ("application/x-rtp")
     );
 
+static void gst_rtpL16enc_set_clock (GstElement * element, GstClock * clock);
 static void gst_rtpL16enc_class_init (GstRtpL16EncClass * klass);
 static void gst_rtpL16enc_base_init (GstRtpL16EncClass * klass);
 static void gst_rtpL16enc_init (GstRtpL16Enc * rtpL16enc);
@@ -130,6 +136,23 @@ gst_rtpL16enc_class_init (GstRtpL16EncClass * klass)
   gobject_class->get_property = gst_rtpL16enc_get_property;
 
   gstelement_class->change_state = gst_rtpL16enc_change_state;
+  gstelement_class->set_clock = gst_rtpL16enc_set_clock;
+
+  g_object_class_install_property (gobject_class, ARG_SAMPLE_RATE,
+      g_param_spec_uint ("sample_rate", "Sample Rate", "Sample Rate",
+          1000, 48000, 44100, G_PARAM_READABLE));
+  g_object_class_install_property (gobject_class, ARG_PAYLOAD_TYPE,
+      g_param_spec_uint ("payload_type", "Payload Type", "Payload Type",
+          0, 127, 96, G_PARAM_READABLE));
+  g_object_class_install_property (gobject_class, ARG_CHANNELS,
+      g_param_spec_uint ("channels", "Channels", "Channels", 1, 2, 2,
+          G_PARAM_READABLE));
+  g_object_class_install_property (gobject_class, ARG_MTU,
+      g_param_spec_uint ("mtu", "MTU", "max bytes in a packet", 0, G_MAXUINT,
+          1460, G_PARAM_READWRITE));
+  g_object_class_install_property (gobject_class, ARG_RTPMAP,
+      g_param_spec_string ("rtpmap", "rtpmap",
+          "dynamic payload type definitions", NULL, G_PARAM_READWRITE));
 }
 
 static void
@@ -146,14 +169,59 @@ gst_rtpL16enc_init (GstRtpL16Enc * rtpL16enc)
   gst_pad_set_chain_function (rtpL16enc->sinkpad, gst_rtpL16enc_chain);
   gst_pad_set_link_function (rtpL16enc->sinkpad, gst_rtpL16enc_sinkconnect);
 
-  rtpL16enc->frequency = 44100;
+  rtpL16enc->sample_rate = 44100;
   rtpL16enc->channels = 2;
-
-  rtpL16enc->next_time = 0;
-  rtpL16enc->time_interval = 0;
-
-  rtpL16enc->seq = 0;
+  rtpL16enc->timestamp = random ();
+  rtpL16enc->seq = random ();
   rtpL16enc->ssrc = random ();
+  rtpL16enc->rtpmap = NULL;
+  rtpL16enc->clock = gst_system_clock_obtain ();
+  rtpL16enc->payload_type = 10;
+  rtpL16enc->mtu = 0;
+}
+
+static void
+gst_rtpL16enc_set_clock (GstElement * element, GstClock * clock)
+{
+  GstRtpL16Enc *rtpL16enc = GST_RTP_L16_ENC (element);
+
+  gst_object_replace ((GstObject **) & rtpL16enc->clock, (GstObject *) clock);
+}
+
+gboolean
+get_payload_type (const gchar * rtpmap,
+    guint sample_rate, guint channels, guchar * payload_type)
+{
+  GST_DEBUG ("r=%d c=%d", sample_rate, channels);
+  if (sample_rate == 44100)
+    switch (channels) {
+      case 1:
+        *payload_type = PAYLOAD_L16_MONO;
+        GST_DEBUG ("selected payload type %d", *payload_type);
+        return 1;
+        break;
+      case 2:
+        *payload_type = PAYLOAD_L16_STEREO;
+        GST_DEBUG ("selected payload type %d", *payload_type);
+        return 1;
+        break;
+    }
+  if (rtpmap) {
+    gchar buf[16], *p;
+
+    sprintf (buf, "%05d/%d", sample_rate, channels);
+    p = (gchar *) strstr (rtpmap, buf);
+    if (p) {
+      while (*p != ':' && p > rtpmap)
+        p--;
+      if (*p == ':') {
+        *payload_type = (guchar) strtoul (p + 1, NULL, 10);
+        GST_DEBUG ("selected payload type %d", *payload_type);
+        return 1;
+      }
+    }
+  }
+  return 0;
 }
 
 static GstPadLinkReturn
@@ -167,32 +235,18 @@ gst_rtpL16enc_sinkconnect (GstPad * pad, const GstCaps * caps)
 
   structure = gst_caps_get_structure (caps, 0);
 
-  ret = gst_structure_get_int (structure, "rate", &rtpL16enc->frequency);
+  ret = gst_structure_get_int (structure, "rate", &rtpL16enc->sample_rate);
   ret &= gst_structure_get_int (structure, "channels", &rtpL16enc->channels);
+  ret &=
+      gst_structure_get_int (structure, "endianness", &rtpL16enc->endianness);
+  ret &=
+      get_payload_type (rtpL16enc->rtpmap, rtpL16enc->sample_rate,
+      rtpL16enc->channels, &rtpL16enc->payload_type);
 
   if (!ret)
     return GST_PAD_LINK_REFUSED;
 
-  /* Pre-calculate what we can */
-  rtpL16enc->time_interval =
-      GST_SECOND / (2 * rtpL16enc->channels * rtpL16enc->frequency);
-
   return GST_PAD_LINK_OK;
-}
-
-
-void
-gst_rtpL16enc_htons (GstBuffer * buf)
-{
-  gint16 *i, *len;
-
-  /* FIXME: is this code correct or even sane at all? */
-  i = (gint16 *) GST_BUFFER_DATA (buf);
-  len = i + GST_BUFFER_SIZE (buf) / sizeof (gint16 *);
-
-  for (; i < len; i++) {
-    *i = g_htons (*i);
-  }
 }
 
 static void
@@ -201,7 +255,10 @@ gst_rtpL16enc_chain (GstPad * pad, GstData * _data)
   GstBuffer *buf = GST_BUFFER (_data);
   GstRtpL16Enc *rtpL16enc;
   GstBuffer *outbuf;
-  Rtp_Packet packet;
+  gchar *samples;
+  guint16 bytes_remaining, space_for_samples;
+  guint16 rtp_fixed_header;
+  GstClockTime timestamp;
 
   g_return_if_fail (pad != NULL);
   g_return_if_fail (GST_IS_PAD (pad));
@@ -218,7 +275,7 @@ gst_rtpL16enc_chain (GstPad * pad, GstData * _data)
     switch (GST_EVENT_TYPE (event)) {
       case GST_EVENT_DISCONTINUOUS:
         GST_DEBUG ("discont");
-        rtpL16enc->next_time = 0;
+        rtpL16enc->timestamp = 0;
         gst_pad_event_default (pad, event);
         return;
       default:
@@ -226,52 +283,65 @@ gst_rtpL16enc_chain (GstPad * pad, GstData * _data)
         return;
     }
   }
+  timestamp = GST_BUFFER_TIMESTAMP (buf);
+  rtp_fixed_header = 0x8000 | rtpL16enc->payload_type;
+  space_for_samples = rtpL16enc->mtu - 12;
+  samples = GST_BUFFER_DATA (buf);
+  bytes_remaining = GST_BUFFER_SIZE (buf);
+  while (bytes_remaining > 0) {
+    gchar *packet;
+    guint32 this_packet_len;
+    guint64 this_samples;
 
-  /* We only need the header */
-  packet = rtp_packet_new_allocate (0, 0, 0);
+    outbuf = gst_buffer_new ();
+    this_packet_len =
+        (bytes_remaining >
+        space_for_samples) ? space_for_samples : bytes_remaining;
+    this_samples = this_packet_len / 2 / rtpL16enc->channels;
+    /* if space_for_samples not right for a fixed number of samples, adjust! */
+    this_packet_len = 2 * rtpL16enc->channels * this_samples;
 
-  rtp_packet_set_csrc_count (packet, 0);
-  rtp_packet_set_extension (packet, 0);
-  rtp_packet_set_padding (packet, 0);
-  rtp_packet_set_version (packet, RTP_VERSION);
-  rtp_packet_set_marker (packet, 0);
-  rtp_packet_set_ssrc (packet, g_htonl (rtpL16enc->ssrc));
-  rtp_packet_set_seq (packet, g_htons (rtpL16enc->seq));
-  rtp_packet_set_timestamp (packet,
-      g_htonl ((guint32) rtpL16enc->next_time / GST_SECOND));
+    GST_BUFFER_SIZE (outbuf) = 12 + this_packet_len;
+    GST_BUFFER_DATA (outbuf) = g_malloc (GST_BUFFER_SIZE (outbuf));
+    packet = GST_BUFFER_DATA (outbuf);
+    GST_BUFFER_TIMESTAMP (outbuf) = timestamp;
 
-  if (rtpL16enc->channels == 1) {
-    rtp_packet_set_payload_type (packet, (guint8) PAYLOAD_L16_MONO);
+    ((guint16 *) packet)[0] = g_htons (rtp_fixed_header);
+    ((guint16 *) packet)[1] = g_htons (rtpL16enc->seq);
+    ((guint32 *) packet)[1] = g_htonl (rtpL16enc->timestamp);
+    ((guint32 *) packet)[2] = g_htonl (rtpL16enc->ssrc);
+    if (rtpL16enc->endianness == G_BIG_ENDIAN)
+      memcpy (packet + 12, samples, this_packet_len);
+    else {
+      guint16 *in, *out;
+      int i;
+
+      in = (guint16 *) (samples);
+      out = (guint16 *) (packet + 12);
+      for (i = 0; i < this_packet_len / 2; i++)
+        out[i] = g_htons (in[i]);
+    }
+
+    GST_DEBUG_OBJECT (rtpL16enc, "mtu=%ld space=%u pt=%u",
+        rtpL16enc->mtu, space_for_samples, rtpL16enc->payload_type);
+    GST_DEBUG_OBJECT (rtpL16enc, "seq=%u timestamp=%lu", rtpL16enc->seq,
+        rtpL16enc->timestamp);
+
+    /* wait on clock */
+    gst_element_wait (GST_ELEMENT (rtpL16enc), timestamp);
+
+    GST_DEBUG_OBJECT (rtpL16enc, "pushing buffer of size %d",
+        GST_BUFFER_SIZE (outbuf));
+    gst_pad_push (rtpL16enc->srcpad, GST_DATA (outbuf));
+
+    ++rtpL16enc->seq;
+    rtpL16enc->timestamp += this_samples;
+    bytes_remaining -= this_packet_len;
+    samples += this_packet_len;
+    timestamp += this_samples / rtpL16enc->sample_rate * GST_SECOND;
+
+    /*gst_buffer_unref (outbuf); */
   }
-
-  else {
-    rtp_packet_set_payload_type (packet, (guint8) PAYLOAD_L16_STEREO);
-  }
-
-  /* FIXME: According to RFC 1890, this is required, right? */
-#if G_BYTE_ORDER == G_LITTLE_ENDIAN
-  gst_rtpL16enc_htons (buf);
-#endif
-
-  outbuf = gst_buffer_new ();
-  GST_BUFFER_SIZE (outbuf) =
-      rtp_packet_get_packet_len (packet) + GST_BUFFER_SIZE (buf);
-  GST_BUFFER_DATA (outbuf) = g_malloc (GST_BUFFER_SIZE (outbuf));
-  GST_BUFFER_TIMESTAMP (outbuf) = rtpL16enc->next_time;
-
-  memcpy (GST_BUFFER_DATA (outbuf), packet->data,
-      rtp_packet_get_packet_len (packet));
-  memcpy (GST_BUFFER_DATA (outbuf) + rtp_packet_get_packet_len (packet),
-      GST_BUFFER_DATA (buf), GST_BUFFER_SIZE (buf));
-
-  GST_DEBUG ("gst_rtpL16enc_chain: pushing buffer of size %d",
-      GST_BUFFER_SIZE (outbuf));
-  gst_pad_push (rtpL16enc->srcpad, GST_DATA (outbuf));
-
-  ++rtpL16enc->seq;
-  rtpL16enc->next_time += rtpL16enc->time_interval * GST_BUFFER_SIZE (buf);
-
-  rtp_packet_free (packet);
   gst_buffer_unref (buf);
 }
 
@@ -285,7 +355,19 @@ gst_rtpL16enc_set_property (GObject * object, guint prop_id,
   g_return_if_fail (GST_IS_RTP_L16_ENC (object));
   rtpL16enc = GST_RTP_L16_ENC (object);
 
+
   switch (prop_id) {
+    case ARG_MTU:
+      rtpL16enc->mtu = g_value_get_uint (value);
+      break;
+    case ARG_RTPMAP:
+      if (rtpL16enc->rtpmap != NULL)
+        g_free (rtpL16enc->rtpmap);
+      if (g_value_get_string (value) == NULL)
+        rtpL16enc->rtpmap = NULL;
+      else
+        rtpL16enc->rtpmap = g_strdup (g_value_get_string (value));
+      break;
     default:
       break;
   }
@@ -302,6 +384,21 @@ gst_rtpL16enc_get_property (GObject * object, guint prop_id, GValue * value,
   rtpL16enc = GST_RTP_L16_ENC (object);
 
   switch (prop_id) {
+    case ARG_SAMPLE_RATE:
+      g_value_set_uint (value, rtpL16enc->sample_rate);
+      break;
+    case ARG_PAYLOAD_TYPE:
+      g_value_set_uint (value, rtpL16enc->payload_type);
+      break;
+    case ARG_CHANNELS:
+      g_value_set_uint (value, rtpL16enc->channels);
+      break;
+    case ARG_MTU:
+      g_value_set_uint (value, rtpL16enc->mtu);
+      break;
+    case ARG_RTPMAP:
+      g_value_set_string (value, rtpL16enc->rtpmap);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;

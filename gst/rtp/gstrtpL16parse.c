@@ -10,6 +10,21 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more
+
+      The RTP header has the following format:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |V=2|P|X|  CC   |M|     PT      |       sequence number         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           timestamp                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |           synchronization source (SSRC) identifier            |
+   +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+   |            contributing source (CSRC) identifiers             |
+   |                             ....                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
 #ifdef HAVE_CONFIG_H
@@ -17,7 +32,6 @@
 #endif
 #include <string.h>
 #include "gstrtpL16parse.h"
-#include "gstrtp-common.h"
 
 /* elementfactory information */
 static GstElementDetails gst_rtp_L16parse_details = {
@@ -37,8 +51,10 @@ enum
 enum
 {
   ARG_0,
+  ARG_CHANNELS,
   ARG_FREQUENCY,
-  ARG_PAYLOAD_TYPE
+  ARG_PAYLOAD_TYPE,
+  ARG_RTPMAP
 };
 
 static GstStaticPadTemplate gst_rtpL16parse_src_template =
@@ -46,7 +62,7 @@ GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("audio/x-raw-int, "
-        "endianness = (int) BYTE_ORDER, "
+        "endianness = (int) BIG_ENDIAN, "
         "signed = (boolean) true, "
         "width = (int) 16, "
         "depth = (int) 16, "
@@ -123,12 +139,18 @@ gst_rtpL16parse_class_init (GstRtpL16ParseClass * klass)
 
   parent_class = g_type_class_ref (GST_TYPE_ELEMENT);
 
+  g_object_class_install_property (gobject_class, ARG_CHANNELS,
+      g_param_spec_uint ("channels", "Channels", "Channels", 1, 2, 2,
+          G_PARAM_READABLE));
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_PAYLOAD_TYPE,
       g_param_spec_int ("payload_type", "payload_type", "payload type",
           G_MININT, G_MAXINT, PAYLOAD_L16_STEREO, G_PARAM_READABLE));
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_FREQUENCY,
-      g_param_spec_int ("frequency", "frequency", "frequency",
-          G_MININT, G_MAXINT, 44100, G_PARAM_READWRITE));
+      g_param_spec_int ("frequency", "frequency", "frequency", G_MININT,
+          G_MAXINT, 44100, G_PARAM_READABLE));
+  g_object_class_install_property (gobject_class, ARG_RTPMAP,
+      g_param_spec_string ("rtpmap", "rtpmap",
+          "dynamic payload type definitions", NULL, G_PARAM_READWRITE));
 
   gobject_class->set_property = gst_rtpL16parse_set_property;
   gobject_class->get_property = gst_rtpL16parse_get_property;
@@ -153,6 +175,10 @@ gst_rtpL16parse_init (GstRtpL16Parse * rtpL16parse)
   rtpL16parse->channels = 2;
 
   rtpL16parse->payload_type = PAYLOAD_L16_STEREO;
+
+  rtpL16parse->rtpmap = NULL;
+  rtpL16parse->initial_timestamp = 0;
+  rtpL16parse->initialised = 0;
 }
 
 void
@@ -180,7 +206,7 @@ gst_rtpL16_caps_nego (GstRtpL16Parse * rtpL16parse)
 
   gst_caps_set_simple (caps,
       "rate", G_TYPE_INT, rtpL16parse->frequency,
-      "channel", G_TYPE_INT, rtpL16parse->channels, NULL);
+      "channels", G_TYPE_INT, rtpL16parse->channels, NULL);
 
   gst_pad_try_set_caps (rtpL16parse->srcpad, caps);
 }
@@ -194,16 +220,31 @@ gst_rtpL16parse_payloadtype_change (GstRtpL16Parse * rtpL16parse,
   switch (pt) {
     case PAYLOAD_L16_MONO:
       rtpL16parse->channels = 1;
+      rtpL16parse->frequency = 44100;
       break;
     case PAYLOAD_L16_STEREO:
       rtpL16parse->channels = 2;
+      rtpL16parse->frequency = 44100;
       break;
     default:
-      g_warning ("unknown payload_t %d\n", pt);
+      if (rtpL16parse->rtpmap) {
+        gchar m[32];
+
+        sprintf (m, ":%u L16/%%u/%%u", pt);
+        GST_DEBUG ("searching [%s] for [%s]", rtpL16parse->rtpmap, m);
+        if (sscanf (rtpL16parse->rtpmap, m, &rtpL16parse->frequency,
+                &rtpL16parse->channels) == 2) {
+          GST_DEBUG ("pt %u mapped to L16/%u/%u", rtpL16parse->frequency,
+              rtpL16parse->channels);
+        } else
+          g_warning ("unknown payload_t %d\n", pt);
+      } else
+        g_warning ("unknown payload_t %d\n", pt);
   }
 
   gst_rtpL16_caps_nego (rtpL16parse);
 }
+
 
 static void
 gst_rtpL16parse_chain (GstPad * pad, GstData * _data)
@@ -211,8 +252,13 @@ gst_rtpL16parse_chain (GstPad * pad, GstData * _data)
   GstBuffer *buf = GST_BUFFER (_data);
   GstRtpL16Parse *rtpL16parse;
   GstBuffer *outbuf;
-  Rtp_Packet packet;
   rtp_payload_t pt;
+  gint version, padding, extension, csrc_count, marker;
+  guint16 seq;
+  guint32 timestamp, ssrc, sample_bytes, sample_count;
+  guchar *packet = GST_BUFFER_DATA (buf);
+  gint16 *samples;
+  guint64 temp;
 
   g_return_if_fail (pad != NULL);
   g_return_if_fail (GST_IS_PAD (pad));
@@ -235,35 +281,80 @@ gst_rtpL16parse_chain (GstPad * pad, GstData * _data)
     gst_rtpL16_caps_nego (rtpL16parse);
   }
 
-  packet =
-      rtp_packet_new_copy_data (GST_BUFFER_DATA (buf), GST_BUFFER_SIZE (buf));
+  version = (packet[0] & 0xC0) >> 6;
+  padding = (packet[0] & 0x20) >> 5;
+  extension = (packet[0] & 0x10) >> 4;
+  csrc_count = packet[0] & 0x0F;
+  marker = (packet[1] & 0x80) >> 7;
+  pt = packet[1] & 0x7F;
+  seq = ((guint16) packet[2] << 8) + packet[3];
+  timestamp = (((((((guint16) packet[4]
+                      ) << 8)
+                  + (guint16) packet[5]
+              ) << 8)
+          + (guint16) packet[6]
+      ) << 8) + packet[7];
+  ssrc = (((((((guint16) packet[8]
+                      ) << 8)
+                  + (guint16) packet[9]
+              ) << 8)
+          + (guint16) packet[10]
+      ) << 8) + packet[11];
+  samples = (gint16 *) & packet[12];    /* starting guess */
+  sample_bytes = GST_BUFFER_SIZE (buf) - 12;    /* starting guess */
+  GST_DEBUG_OBJECT (rtpL16parse,
+      "rtp version=%u pt=%u, seq=%u timestamp=%lu ssrc=%lx", version, pt, seq,
+      timestamp, ssrc);
+  if (csrc_count > 0) {
+    /* FIXME we will ignore them for now - should be part of metadata for
+     * making pure RTP mixers
+     */
+    samples += 2 * csrc_count;  /* csrcs are 32 bits, samples are 16 */
+    sample_bytes -= 4 * csrc_count;
+  }
+  if (extension) {
+    guint16 extension_length = (guint16) samples[1];
 
-  pt = rtp_packet_get_payload_type (packet);
+    samples += 2 + 2 * extension_length;
+    sample_bytes -= 4 + 4 * extension_length;
+  }
+  if (padding) {
+    guchar padding_count = packet[GST_BUFFER_SIZE (buf) - 1];
+
+    sample_bytes -= padding_count;
+  }
+  sample_count = sample_bytes / 2;
 
   if (pt != rtpL16parse->payload_type) {
     gst_rtpL16parse_payloadtype_change (rtpL16parse, pt);
   }
 
-  outbuf = gst_buffer_new ();
-  GST_BUFFER_SIZE (outbuf) = rtp_packet_get_payload_len (packet);
-  GST_BUFFER_DATA (outbuf) = g_malloc (GST_BUFFER_SIZE (outbuf));
-  GST_BUFFER_TIMESTAMP (outbuf) =
-      g_ntohl (rtp_packet_get_timestamp (packet)) * GST_SECOND;
+  if (rtpL16parse->initialised == 0) {
+    rtpL16parse->initialised = 1;
+    rtpL16parse->initial_timestamp = timestamp;
+  }
 
-  memcpy (GST_BUFFER_DATA (outbuf), rtp_packet_get_payload (packet),
-      GST_BUFFER_SIZE (outbuf));
+  outbuf = gst_buffer_new ();
+  GST_BUFFER_SIZE (outbuf) = sample_bytes;
+  GST_BUFFER_DATA (outbuf) = g_malloc (GST_BUFFER_SIZE (outbuf));
+
+  /* FIXME gst timestamp should be derived from RTCP */
+  /* for now, or if RTCP is not sent, the RTP timestamp is a random
+   * number to start with and then indicates the number of samples
+   * since the start of the stream. 
+   */
+
+  temp = GST_SECOND * (timestamp - rtpL16parse->initial_timestamp);
+  GST_DEBUG_OBJECT (rtpL16parse, "timestamp*samplerate=%llu", temp);
+  GST_BUFFER_TIMESTAMP (outbuf) = temp / rtpL16parse->frequency;
+
+  memcpy (GST_BUFFER_DATA (outbuf), samples, GST_BUFFER_SIZE (outbuf));
 
   GST_DEBUG ("gst_rtpL16parse_chain: pushing buffer of size %d",
       GST_BUFFER_SIZE (outbuf));
 
-  /* FIXME: According to RFC 1890, this is required, right? */
-#if G_BYTE_ORDER == G_LITTLE_ENDIAN
-  gst_rtpL16parse_ntohs (outbuf);
-#endif
-
   gst_pad_push (rtpL16parse->srcpad, GST_DATA (outbuf));
 
-  rtp_packet_free (packet);
   gst_buffer_unref (buf);
 }
 
@@ -278,11 +369,13 @@ gst_rtpL16parse_set_property (GObject * object, guint prop_id,
   rtpL16parse = GST_RTP_L16_PARSE (object);
 
   switch (prop_id) {
-    case ARG_PAYLOAD_TYPE:
-      gst_rtpL16parse_payloadtype_change (rtpL16parse, g_value_get_int (value));
-      break;
-    case ARG_FREQUENCY:
-      rtpL16parse->frequency = g_value_get_int (value);
+    case ARG_RTPMAP:
+      if (rtpL16parse->rtpmap != NULL)
+        g_free (rtpL16parse->rtpmap);
+      if (g_value_get_string (value) == NULL)
+        rtpL16parse->rtpmap = NULL;
+      else
+        rtpL16parse->rtpmap = g_strdup (g_value_get_string (value));
       break;
     default:
       break;
@@ -305,6 +398,12 @@ gst_rtpL16parse_get_property (GObject * object, guint prop_id, GValue * value,
       break;
     case ARG_FREQUENCY:
       g_value_set_int (value, rtpL16parse->frequency);
+      break;
+    case ARG_CHANNELS:
+      g_value_set_uint (value, rtpL16parse->channels);
+      break;
+    case ARG_RTPMAP:
+      g_value_set_string (value, rtpL16parse->rtpmap);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);

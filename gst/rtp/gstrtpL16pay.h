@@ -28,35 +28,40 @@
 #ifdef __cplusplus
 extern "C"
 {
-#endif				/* __cplusplus */
+#endif                          /* __cplusplus */
 
 /* Definition of structure storing data for this element. */
-typedef struct _GstRtpL16Enc GstRtpL16Enc;
-struct _GstRtpL16Enc
-{
-  GstElement element;
+  typedef struct _GstRtpL16Enc GstRtpL16Enc;
+  struct _GstRtpL16Enc
+  {
+    GstElement element;
+    GstClock *clock;
 
-  GstPad *sinkpad;
-  GstPad *srcpad;
+    GstPad *sinkpad;
+    GstPad *srcpad;
 
-  guint frequency;
-  guint channels;
+    gchar *rtpmap;
 
-  /* the timestamp of the next frame */
-  guint64 next_time;
-  /* the interval between frames */
-  guint64 time_interval;
-  
-  guint32 ssrc;
-  guint16 seq;
-};
+    guint endianness;
+    guint sample_rate;
+    guint channels;
+    guint8 payload_type;
+
+    /* the rtp timestamp of the next frame */
+    guint32 timestamp;
+
+    guint32 mtu;
+
+    guint32 ssrc;
+    guint16 seq;
+  };
 
 /* Standard definition defining a class for this element. */
-typedef struct _GstRtpL16EncClass GstRtpL16EncClass;
-struct _GstRtpL16EncClass
-{
-  GstElementClass parent_class;
-};
+  typedef struct _GstRtpL16EncClass GstRtpL16EncClass;
+  struct _GstRtpL16EncClass
+  {
+    GstElementClass parent_class;
+  };
 
 /* Standard macros for defining types for this element.  */
 #define GST_TYPE_RTP_L16_ENC \
@@ -70,11 +75,11 @@ struct _GstRtpL16EncClass
 #define GST_IS_RTP_L16_ENC_CLASS(obj) \
   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_RTP_L16_ENC))
 
-gboolean gst_rtpL16enc_plugin_init (GstPlugin * plugin);
+  gboolean gst_rtpL16enc_plugin_init (GstPlugin * plugin);
 
 #ifdef __cplusplus
 }
-#endif				/* __cplusplus */
+#endif                          /* __cplusplus */
 
 
-#endif				/* __GST_RTP_L16_ENC_H__ */
+#endif                          /* __GST_RTP_L16_ENC_H__ */

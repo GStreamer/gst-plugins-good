@@ -62,7 +62,7 @@ struct _GstUDPSrc {
   GstElement element;
 
   /* pads */
-  GstPad *sinkpad,*srcpad;
+  GstPad *srcpad;
 
   int port;
   int sock;

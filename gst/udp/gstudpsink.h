@@ -78,6 +78,7 @@ struct _GstUDPSink {
   gchar *host;
     
   guint mtu;
+  guint ttl;
     
   GstClock *clock;
 };

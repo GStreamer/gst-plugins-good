@@ -162,7 +162,7 @@ gst_udpsrc_set_clock (GstElement * element, GstClock * clock)
 static void
 gst_udpsrc_init (GstUDPSrc * udpsrc)
 {
-  /* create the src and src pads */
+  /* create the src pads */
   udpsrc->srcpad = gst_pad_new ("src", GST_PAD_SRC);
   gst_element_add_pad (GST_ELEMENT (udpsrc), udpsrc->srcpad);
   gst_pad_set_get_function (udpsrc->srcpad, gst_udpsrc_get);
@@ -380,7 +380,7 @@ gst_udpsrc_get_property (GObject * object, guint prop_id, GValue * value,
   }
 }
 
-/* create a socket for sending to remote machine */
+/* create a socket for receiving from the remote machine */
 static gboolean
 gst_udpsrc_init_receive (GstUDPSrc * src)
 {
@@ -412,6 +412,7 @@ gst_udpsrc_init_receive (GstUDPSrc * src)
   if (inet_aton (src->multi_group, &(src->multi_addr.imr_multiaddr))) {
     if (src->multi_addr.imr_multiaddr.s_addr) {
       src->multi_addr.imr_interface.s_addr = INADDR_ANY;
+      /* Joining the multicast group */
       setsockopt (src->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &src->multi_addr,
           sizeof (src->multi_addr));
     }

@@ -26,24 +26,24 @@
 typedef enum
 {
 /* Audio: */
-  PAYLOAD_PCMU = 0,		/* ITU-T G.711. mu-law audio (RFC 3551) */ 
+  PAYLOAD_PCMU = 0,             /* ITU-T G.711. mu-law audio (RFC 3551) */
   PAYLOAD_GSM = 3,
-  PAYLOAD_PCMA = 8,		/* ITU-T G.711 A-law audio (RFC 3551) */
+  PAYLOAD_PCMA = 8,             /* ITU-T G.711 A-law audio (RFC 3551) */
   PAYLOAD_L16_STEREO = 10,
   PAYLOAD_L16_MONO = 11,
-  PAYLOAD_MPA = 14,		/* Audio MPEG 1-3 */
-  PAYLOAD_G723_63 = 16,		/* Not standard */
-  PAYLOAD_G723_53 = 17,		/* Not standard */
-  PAYLOAD_TS48 = 18,		/* Not standard */
-  PAYLOAD_TS41 = 19,		/* Not standard */
-  PAYLOAD_G728 = 20,		/* Not standard */
-  PAYLOAD_G729 = 21,		/* Not standard */
+  PAYLOAD_MPA = 14,             /* Audio MPEG 1-3 */
+  PAYLOAD_G723_63 = 16,         /* Not standard */
+  PAYLOAD_G723_53 = 17,         /* Not standard */
+  PAYLOAD_TS48 = 18,            /* Not standard */
+  PAYLOAD_TS41 = 19,            /* Not standard */
+  PAYLOAD_G728 = 20,            /* Not standard */
+  PAYLOAD_G729 = 21,            /* Not standard */
 
 /* Video: */
-  PAYLOAD_MPV = 32,		/* Video MPEG 1 & 2 */
+  PAYLOAD_MPV = 32,             /* Video MPEG 1 & 2 */
 
 /* BOTH */
-  PAYLOAD_BMPEG = 34		/* Not Standard */
+  PAYLOAD_BMPEG = 34            /* Not Standard */
 }
 rtp_payload_t;
 

@@ -48,7 +48,8 @@ enum
   ARG_HOST,
   ARG_PORT,
   ARG_CONTROL,
-  ARG_MTU
+  ARG_MTU,
+  ARG_TTL
       /* FILL ME */
 };
 
@@ -145,7 +146,8 @@ gst_udpsink_class_init (GstUDPSink * klass)
   g_object_class_install_property (gobject_class, ARG_CONTROL,
       g_param_spec_enum ("control", "control", "The type of control",
           GST_TYPE_UDPSINK_CONTROL, CONTROL_UDP, G_PARAM_READWRITE));
-  g_object_class_install_property (gobject_class, ARG_MTU, g_param_spec_int ("mtu", "mtu", "maximun transmit unit", G_MININT, G_MAXINT, 0, G_PARAM_READWRITE)); /* CHECKME */
+  g_object_class_install_property (gobject_class, ARG_MTU, g_param_spec_int ("mtu", "mtu", "maximum transmit unit", G_MININT, G_MAXINT, 0, G_PARAM_READWRITE)); /* CHECKME */
+  g_object_class_install_property (gobject_class, ARG_TTL, g_param_spec_int ("ttl", "ttl", "time to live", G_MININT, G_MAXINT, 0, G_PARAM_READWRITE));  /* CHECKME */
 
   gobject_class->set_property = gst_udpsink_set_property;
   gobject_class->get_property = gst_udpsink_get_property;
@@ -264,6 +266,7 @@ gst_udpsink_init (GstUDPSink * udpsink)
   udpsink->port = UDP_DEFAULT_PORT;
   udpsink->control = CONTROL_UDP;
   udpsink->mtu = 1024;
+  udpsink->ttl = 1;
 
   udpsink->clock = NULL;
 }
@@ -342,6 +345,9 @@ gst_udpsink_set_property (GObject * object, guint prop_id, const GValue * value,
     case ARG_MTU:
       udpsink->mtu = g_value_get_int (value);
       break;
+    case ARG_TTL:
+      udpsink->ttl = g_value_get_int (value);
+      break;
     default:
       break;
   }
@@ -370,6 +376,9 @@ gst_udpsink_get_property (GObject * object, guint prop_id, GValue * value,
     case ARG_MTU:
       g_value_set_int (value, udpsink->mtu);
       break;
+    case ARG_TTL:
+      g_value_set_int (value, udpsink->ttl);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -391,6 +400,8 @@ gst_udpsink_init_send (GstUDPSink * sink)
 
   /* if its an IP address */
   if (inet_aton (sink->host, &addr)) {
+    int ttl = htons (sink->ttl);
+
     /* check if its a multicast address */
     if ((ntohl (addr.s_addr) & 0xe0000000) == 0xe0000000) {
       sink->multi_addr.imr_multiaddr.s_addr = addr.s_addr;
@@ -401,6 +412,8 @@ gst_udpsink_init_send (GstUDPSink * sink)
       /* Joining the multicast group */
       setsockopt (sink->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &sink->multi_addr,
           sizeof (sink->multi_addr));
+      /* set the time to live */
+      setsockopt (sink->sock, IPPROTO_IP, IP_TTL, &ttl, sizeof (ttl));
     }
 
     else {
