@@ -40,7 +40,6 @@ struct _GstMonoscope {
 
   /* pads */
   GstPad *sinkpad,*srcpad;
-  GstBufferPool *peerpool;
 
   /* the timestamp of the next frame */
   guint64 next_time;
@@ -174,7 +173,6 @@ gst_monoscope_init (GstMonoscope *monoscope)
   gst_pad_set_link_function (monoscope->srcpad, gst_monoscope_srcconnect);
 
   monoscope->next_time = 0;
-  monoscope->peerpool = NULL;
 
   /* reset the initial video state */
   monoscope->first_buffer = TRUE;

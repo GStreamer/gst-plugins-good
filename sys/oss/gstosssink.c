@@ -124,20 +124,6 @@ gst_osssink_get_type (void)
   return osssink_type;
 }
 
-static GstBufferPool*
-gst_osssink_get_bufferpool (GstPad *pad)
-{
-  GstOssSink *oss;
-  
-  oss = GST_OSSSINK (gst_pad_get_parent(pad));
-
-  /* 6 buffers per chunk by default */
-  if (!oss->sinkpool)
-    oss->sinkpool = gst_buffer_pool_get_default (oss->bufsize, 6);
-
-  return oss->sinkpool;
-}
-
 static void
 gst_osssink_dispose (GObject *object)
 {
@@ -207,7 +193,6 @@ gst_osssink_init (GstOssSink *osssink)
 		  gst_static_pad_template_get (&osssink_sink_factory), "sink");
   gst_element_add_pad (GST_ELEMENT (osssink), osssink->sinkpad);
   gst_pad_set_link_function (osssink->sinkpad, gst_osssink_sinkconnect);
-  gst_pad_set_bufferpool_function (osssink->sinkpad, gst_osssink_get_bufferpool);
   gst_pad_set_convert_function (osssink->sinkpad, gst_osssink_convert);
   gst_pad_set_query_function (osssink->sinkpad, gst_osssink_sink_query);
   gst_pad_set_query_type_function (osssink->sinkpad, gst_osssink_get_query_types);
@@ -220,7 +205,6 @@ gst_osssink_init (GstOssSink *osssink)
   osssink->resync = FALSE;
   osssink->mute = FALSE;
   osssink->sync = TRUE;
-  osssink->sinkpool = NULL;
   osssink->provided_clock = gst_audio_clock_new ("ossclock", gst_osssink_get_time, osssink);
   gst_object_set_parent (GST_OBJECT (osssink->provided_clock), GST_OBJECT (osssink));
   osssink->handled = 0;
@@ -516,7 +500,6 @@ gst_osssink_set_property (GObject *object, guint prop_id, const GValue *value, G
       break;
     case ARG_BUFFER_SIZE:
       osssink->bufsize = g_value_get_uint (value);
-      osssink->sinkpool = gst_buffer_pool_get_default (osssink->bufsize, 6);
       g_object_notify (object, "buffer_size");
       break;
     case ARG_SYNC:
