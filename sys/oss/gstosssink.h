@@ -78,6 +78,9 @@ struct _GstOssSink {
   guint bufsize;
   guint bps;
   guint64 offset;
+  
+  /* length of the current stream in microseconds */
+  guint64 length;
 
   guint64 fragment_time;
 };

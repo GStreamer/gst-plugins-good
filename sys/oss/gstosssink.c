@@ -58,7 +58,7 @@ static void 			gst_osssink_set_property	(GObject *object, guint prop_id, const G
 static void 			gst_osssink_get_property	(GObject *object, guint prop_id, GValue *value, 
 								 GParamSpec *pspec);
 
-static void 			gst_osssink_chain		(GstPad *pad,GstBuffer *buf);
+static void 			gst_osssink_chain		(GstPad *pad, GstData *data);
 
 /* OssSink signals and args */
 enum {
@@ -74,7 +74,9 @@ enum {
   ARG_CHANNELS,
   ARG_FREQUENCY,
   ARG_FRAGMENT,
-  ARG_BUFFER_SIZE
+  ARG_BUFFER_SIZE,
+  ARG_LENGTH,
+  ARG_POSITION,
   /* FILL ME */
 };
 
@@ -203,6 +205,12 @@ gst_osssink_class_init (GstOssSinkClass *klass)
   g_object_class_install_property(G_OBJECT_CLASS(klass), ARG_BUFFER_SIZE,
     g_param_spec_int("buffer_size","buffer_size","buffer_size",
                      0,G_MAXINT,4096,G_PARAM_READWRITE));
+  g_object_class_install_property(G_OBJECT_CLASS(klass), ARG_POSITION,
+    g_param_spec_uint64("position", "Position", "position in the current stream in microseconds",
+		        0, G_MAXUINT64, 0, G_PARAM_READABLE));
+  g_object_class_install_property(G_OBJECT_CLASS(klass), ARG_LENGTH,
+    g_param_spec_uint64("length", "length", "length of the current stream in microseconds",
+		        0, G_MAXUINT64, 0, G_PARAM_READABLE));
 
   gst_osssink_signals[SIGNAL_HANDOFF] =
     g_signal_new("handoff",G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST,
@@ -244,12 +252,15 @@ gst_osssink_init (GstOssSink *osssink)
   /* 6 buffers per chunk by default */
   osssink->sinkpool = gst_buffer_pool_get_default (osssink->bufsize, 6);
 
+  osssink->length = 0;
+  
   osssink->provided_clock = GST_CLOCK (gst_oss_clock_new ("OssClock", GST_ELEMENT (osssink)));
 
   GST_ELEMENT (osssink)->setclockfunc 	 = gst_osssink_set_clock;
   GST_ELEMENT (osssink)->getclockfunc 	 = gst_osssink_get_clock;
   
   GST_FLAG_SET (osssink, GST_ELEMENT_THREAD_SUGGESTED);
+  GST_FLAG_SET (osssink, GST_ELEMENT_EVENT_AWARE);
 }
 
 static GstPadConnectReturn 
@@ -414,22 +425,66 @@ gst_osssink_get_clock (GstElement *element)
 }
 
 static void 
-gst_osssink_chain (GstPad *pad, GstBuffer *buf) 
+gst_osssink_chain (GstPad *pad, GstData *data) 
 {
   GstOssSink *osssink;
   GstClockTime buftime;
-
+  GstBuffer *buf;
   /* this has to be an audio buffer */
   osssink = GST_OSSSINK (gst_pad_get_parent (pad));
 
+  /* handle events */
+  if (GST_IS_EVENT (data))
+  {
+    GstEventLength *length;
+    switch (GST_DATA_TYPE (data))
+    {
+      case GST_EVENT_NEWMEDIA:
+	/* FIXME */
+        osssink->offset = 0;
+        g_object_notify (G_OBJECT (osssink), "position");
+        break;
+      case GST_EVENT_DISCONTINUOUS:
+	/* FIXME */
+        osssink->offset = data->offset[GST_OFFSET_TIME];
+        g_object_notify (G_OBJECT (osssink), "position");
+        break;
+      case GST_EVENT_EOS:
+	gst_element_set_eos (GST_ELEMENT (osssink));
+        break;
+      case GST_EVENT_LENGTH:
+        {
+	  length = GST_EVENT_LENGTH (data);
+	  if (length->accuracy[GST_OFFSET_TIME] > GST_ACCURACY_NONE)
+	  {
+	    osssink->length = length->length[GST_OFFSET_TIME];
+	    g_object_notify (G_OBJECT (osssink), "length");
+	  }
+        }
+	break;
+      default:
+        /* g_assert_not_reached () */
+        break;
+    }
+    gst_data_unref (data);
+    return;
+  }
+  
+  buf = GST_BUFFER (data);
   buftime = GST_BUFFER_TIMESTAMP (buf);
 
   if (!osssink->bps) {
-    gst_buffer_unref (buf);
+    gst_data_unref (data);
     gst_element_error (GST_ELEMENT (osssink), "capsnego was never performed, unknown data type");
   }
 
   if (osssink->fd >= 0) {
+    /* FIXME, NEW_MEDIA/DISCONT?. Try to get our start point */
+    if (buftime > osssink->offset) {
+      /* gst_oss_clock_set_base (GST_OSS_CLOCK (osssink->clock), buftime); */
+      osssink->offset = buftime;
+    }
+
     if (!osssink->mute) {
       guchar *data = GST_BUFFER_DATA (buf);
       gint size = GST_BUFFER_SIZE (buf);
@@ -441,12 +496,6 @@ gst_osssink_chain (GstPad *pad, GstBuffer *buf)
           count_info optr;
           audio_buf_info ospace;
 	  gint queued;
-
-          /* FIXME, NEW_MEDIA/DISCONT?. Try to get our start point */
-          if (osssink->offset == 0LL && buftime != -1LL) {
-            /* gst_oss_clock_set_base (GST_OSS_CLOCK (osssink->clock), buftime); */
-	    osssink->offset = buftime;
-          }
 
           ioctl (osssink->fd, SNDCTL_DSP_GETOSPACE, &ospace);
           ioctl (osssink->fd, SNDCTL_DSP_GETOPTR, &optr);
@@ -484,8 +533,13 @@ gst_osssink_chain (GstPad *pad, GstBuffer *buf)
 	}
       }
     }
+    
+    /* now set the right offset */
+    /* FIXME: rounding errors? */
+    osssink->offset += GST_BUFFER_SIZE (buf) * 1000000LL / osssink->bps;
+    g_object_notify (G_OBJECT (osssink), "position");
   }
-  gst_buffer_unref (buf);
+  gst_data_unref (data);
 }
 
 static void 
@@ -536,6 +590,7 @@ gst_osssink_set_property (GObject *object, guint prop_id, const GValue *value, G
       g_object_notify (object, "buffer_size");
       break;
     default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
   }
 }
@@ -572,7 +627,14 @@ gst_osssink_get_property (GObject *object, guint prop_id, GValue *value, GParamS
     case ARG_BUFFER_SIZE:
       g_value_set_int (value, osssink->bufsize);
       break;
+    case ARG_LENGTH:
+      g_value_set_uint64 (value, osssink->length);      
+      break;
+    case ARG_POSITION:
+      g_value_set_uint64 (value, osssink->offset);      
+      break;
     default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
   }
 }
