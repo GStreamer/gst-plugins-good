@@ -1,9 +1,0 @@
-*GstRtpRecv:
-  *gstrtprecv.c
-
-*For Sequencing:
-  * timestamp
-  * algorithm
-
-*For Video:
-  * payload_t 

@@ -23,20 +23,15 @@
 
 #include <gst/gst.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
 
-#include <errno.h>
-#include <string.h>
-#include <sys/types.h>
-#include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <fcntl.h>
-#include "gstudp.h"
+#include "address.h"
+
+G_BEGIN_DECLS
+
 
 #define GST_TYPE_UDPSRC \
   (gst_udpsrc_get_type())
@@ -52,29 +47,50 @@ extern "C" {
 typedef struct _GstUDPSrc GstUDPSrc;
 typedef struct _GstUDPSrcClass GstUDPSrcClass;
 
+
+enum {
+  ARG_0,
+  ARG_LOCAL_ADDR,
+  ARG_DATA_PORT,
+  ARG_CONTROL_PORT,
+  ARG_AUTHORIZED_SENDERS,
+  ARG_REMOTE_ADDRESSES,
+};
+
 typedef enum {
   GST_UDPSRC_OPEN             = GST_ELEMENT_FLAG_LAST,
 
   GST_UDPSRC_FLAG_LAST        = GST_ELEMENT_FLAG_LAST + 2,
 } GstUDPSrcFlags;
 
+// FIXME: Release memory of stored data after setting them as properties.
+//        Release memory of stored data in the destructor
+
 struct _GstUDPSrc {
   GstElement element;
 
   /* pads */
-  GstPad *sinkpad,*srcpad;
+  GstPad* srcpad;
+  GstAddress local_address;
+  gint data_port, control_port;
+  /* raw members have the names resolved */
+  GstNumAddress raw_local_address;
+  gboolean local_address_uptodate;
+  int data_socket, control_socket;
+  GList* remote_addresses; /* Addresses that receive our control messages. GList of GstAddrPort */
+  GstNumAddressesPorts raw_remote_addresses;
+  gboolean remote_address_uptodate;
+  GList* authorized_senders; /* Packets from other addresses are dropped. Glist of GstAddress */
+  gboolean authorized_senders_uptodate;
+  GstNumAddresses raw_authorized_senders;
 
-  int port;
-  int sock;
-  int control_sock;
-  Gst_UDP_Control control;
-  gchar *multi_group;
-
-  struct sockaddr_in myaddr;
-  struct ip_mreq multi_addr;
   GstClock *clock;
 
+  int pipe[2];
+
   gboolean first_buf;
+  gboolean open;
+  gboolean include_addr_in_data; // FIXME Initialize
 };
 
 struct _GstUDPSrcClass {
@@ -84,9 +100,20 @@ struct _GstUDPSrcClass {
 GType gst_udpsrc_get_type(void);
 
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
+#define GST_EVENT_CONTROL 100
 
+struct control_event {
+  guint size;
+  gpointer data; /* Actually a (struct buffer_data_extended *) buffer */
+};
+
+
+struct buffer_data_extended {
+  guint addr_size;
+  struct sockaddr_in6 addr;
+  char data[1];
+};
+
+G_END_DECLS
 
 #endif /* __GST_UDPSRC_H__ */
