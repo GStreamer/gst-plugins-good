@@ -380,7 +380,7 @@ gst_osssink_handle_event (GstPad * pad, GstEvent * event)
           FALSE);
       gst_element_finish_preroll (GST_ELEMENT (osssink),
           GST_STREAM_GET_LOCK (pad));
-      gst_pipeline_post_message (GST_ELEMENT_MANAGER (osssink),
+      gst_element_post_message (GST_ELEMENT (osssink),
           gst_message_new_eos (GST_OBJECT (osssink)));
       break;
     default:
@@ -395,10 +395,12 @@ static GstFlowReturn
 gst_osssink_chain (GstPad * pad, GstBuffer * buf)
 {
   GstOssSink *osssink;
-  GstClockTimeDiff buftime, soundtime, elementtime;
+
+  //GstClockTimeDiff buftime, soundtime, elementtime;
   guchar *data;
   guint to_write;
-  gint delay;
+
+  //gint delay;
   GstFlowReturn result = GST_FLOW_OK;
 
   /* this has to be an audio buffer */
@@ -421,6 +423,7 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
 
   data = GST_BUFFER_DATA (buf);
   to_write = GST_BUFFER_SIZE (buf);
+#if 0
   /* sync audio with buffers timestamp. elementtime is the *current* time.
    * soundtime is the time if the soundcard has processed all queued data. */
   if (GST_ELEMENT (osssink)->clock) {
@@ -477,6 +480,7 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
       g_free (sbuf);
     }
   }
+#endif
 
   if (GST_OSSELEMENT (osssink)->fd >= 0 && to_write > 0) {
     if (!osssink->mute) {
@@ -498,9 +502,10 @@ gst_osssink_chain (GstPad * pad, GstBuffer * buf)
       g_warning ("muting osssinks unimplemented wrt clocks!");
     }
   }
-
+#if 0
   gst_audio_clock_update_time ((GstAudioClock *) osssink->provided_clock,
       gst_osssink_get_time (osssink->provided_clock, osssink));
+#endif
 
 done:
   GST_STREAM_UNLOCK (pad);
