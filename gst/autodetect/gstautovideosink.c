@@ -93,6 +93,8 @@ gst_auto_video_sink_class_init (GstAutoVideoSinkClass * klass)
 static void
 gst_auto_video_sink_init (GstAutoVideoSink * sink)
 {
+  sink->pad = NULL;
+  sink->kid = NULL;
   gst_auto_video_sink_detect (sink, TRUE);
   sink->init = FALSE;
 }
@@ -162,20 +164,53 @@ static void
 gst_auto_video_sink_detect (GstAutoVideoSink * sink, gboolean fake)
 {
   GstElement *esink;
+  GstPad *peer = NULL;
+
+  /* save ghostpad */
+  if (sink->pad) {
+    gst_object_ref (GST_OBJECT (sink->pad));
+    peer = GST_PAD_PEER (GST_PAD_REALIZE (sink->pad));
+    if (peer)
+      gst_pad_unlink (peer, sink->pad);
+  }
+
+  /* kill old element */
+  if (sink->kid) {
+    GST_DEBUG_OBJECT (sink, "Removing old kid");
+    gst_bin_remove (GST_BIN (sink), sink->kid);
+    sink->kid = NULL;
+  }
 
   /* find element */
+  GST_DEBUG_OBJECT (sink, "Creating new kid (%ssink)", fake ? "fake" : "video");
   if (fake) {
     esink = gst_element_factory_make ("fakesink", "temporary-sink");
+    g_return_if_fail (esink);
   } else if (!(esink = gst_auto_video_sink_find_best (sink))) {
     GST_ELEMENT_ERROR (sink, LIBRARY, INIT, (NULL),
         ("Failed to find a supported video sink"));
     return;
   }
+  sink->kid = esink;
+  gst_bin_add (GST_BIN (sink), esink);
 
   /* attach ghost pad */
-  gst_bin_add (GST_BIN (sink), esink);
-  gst_element_add_ghost_pad (GST_ELEMENT (sink),
-      gst_element_get_pad (esink, "sink"), "sink");
+  if (sink->pad) {
+    GST_DEBUG_OBJECT (sink, "Re-doing existing ghostpad");
+    gst_pad_add_ghost_pad (gst_element_get_pad (sink->kid, "sink"), sink->pad);
+  } else {
+    GST_DEBUG_OBJECT (sink, "Creating new ghostpad");
+    sink->pad = gst_ghost_pad_new ("sink",
+        gst_element_get_pad (sink->kid, "sink"));
+    gst_element_add_pad (GST_ELEMENT (sink), sink->pad);
+  }
+  if (peer) {
+    GST_DEBUG_OBJECT (sink, "Linking...");
+    gst_pad_link (peer, sink->pad);
+  }
+
+  GST_DEBUG_OBJECT (sink, "done changing auto video sink");
+  sink->init = TRUE;
 }
 
 static GstElementStateReturn

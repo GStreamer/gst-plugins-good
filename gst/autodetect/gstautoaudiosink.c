@@ -93,6 +93,8 @@ gst_auto_audio_sink_class_init (GstAutoAudioSinkClass * klass)
 static void
 gst_auto_audio_sink_init (GstAutoAudioSink * sink)
 {
+  sink->pad = NULL;
+  sink->kid = NULL;
   gst_auto_audio_sink_detect (sink, TRUE);
   sink->init = FALSE;
 }
@@ -168,8 +170,25 @@ static void
 gst_auto_audio_sink_detect (GstAutoAudioSink * sink, gboolean fake)
 {
   GstElement *esink;
+  GstPad *peer = NULL;
+
+  /* save ghostpad */
+  if (sink->pad) {
+    gst_object_ref (GST_OBJECT (sink->pad));
+    peer = GST_PAD_PEER (GST_PAD_REALIZE (sink->pad));
+    if (peer)
+      gst_pad_unlink (peer, sink->pad);
+  }
+
+  /* kill old element */
+  if (sink->kid) {
+    GST_DEBUG_OBJECT (sink, "Removing old kid");
+    gst_bin_remove (GST_BIN (sink), sink->kid);
+    sink->kid = NULL;
+  }
 
   /* find element */
+  GST_DEBUG_OBJECT (sink, "Creating new kid (%ssink)", fake ? "fake" : "audio");
   if (fake) {
     esink = gst_element_factory_make ("fakesink", "temporary-sink");
   } else if (!(esink = gst_auto_audio_sink_find_best (sink))) {
@@ -177,12 +196,26 @@ gst_auto_audio_sink_detect (GstAutoAudioSink * sink, gboolean fake)
         ("Failed to find a supported audio sink"));
     return;
   }
+  sink->kid = esink;
+  gst_bin_add (GST_BIN (sink), esink);
 
   /* attach ghost pad */
+  if (sink->pad) {
+    GST_DEBUG_OBJECT (sink, "Re-doing existing ghostpad");
+    gst_pad_add_ghost_pad (gst_element_get_pad (sink->kid, "sink"), sink->pad);
+  } else {
+    GST_DEBUG_OBJECT (sink, "Creating new ghostpad");
+    sink->pad = gst_ghost_pad_new ("sink",
+        gst_element_get_pad (sink->kid, "sink"));
+    gst_element_add_pad (GST_ELEMENT (sink), sink->pad);
+  }
+  if (peer) {
+    GST_DEBUG_OBJECT (sink, "Linking...");
+    gst_pad_link (peer, sink->pad);
+  }
+
+  GST_DEBUG_OBJECT (sink, "done changing auto audio sink");
   sink->init = TRUE;
-  gst_bin_add (GST_BIN (sink), esink);
-  gst_element_add_ghost_pad (GST_ELEMENT (sink),
-      gst_element_get_pad (esink, "sink"), "sink");
 }
 
 static GstElementStateReturn
