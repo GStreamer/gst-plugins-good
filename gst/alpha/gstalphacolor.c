@@ -62,7 +62,7 @@ struct _GstAlphaColorClass
 static GstElementDetails gst_alpha_color_details =
 GST_ELEMENT_DETAILS ("alpha color filter",
     "Filter/Effect/Video",
-    "converts rgb to yuv with alpha",
+    "RGB->YUV colorspace conversion preserving the alpha channels",
     "Wim Taymans <wim@fluendo.com>");
 
 
@@ -374,5 +374,5 @@ plugin_init (GstPlugin * plugin)
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     "alphacolor",
-    "colorspace conversion preserving the alpha channels",
+    "RGB->YUV colorspace conversion preserving the alpha channels",
     plugin_init, VERSION, GST_LICENSE, GST_PACKAGE, GST_ORIGIN)

@@ -97,7 +97,7 @@ struct _GstAlphaClass
 static GstElementDetails gst_alpha_details =
 GST_ELEMENT_DETAILS ("alpha filter",
     "Filter/Effect/Video",
-    "Adds an alpha channel to video",
+    "Adds an alpha channel to I420/AYUV video",
     "Wim Taymans <wim@fluendo.com>");
 
 
@@ -908,5 +908,5 @@ plugin_init (GstPlugin * plugin)
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     "alpha",
-    "resizes a video by adding borders or cropping",
+    "Adds an alpha channel to I420/AYUV video",
     plugin_init, VERSION, GST_LICENSE, GST_PACKAGE, GST_ORIGIN)
