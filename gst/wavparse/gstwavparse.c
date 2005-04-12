@@ -229,7 +229,7 @@ gst_wavparse_destroy_sourcepad (GstWavParse * wavparse)
   }
 }
 
-static void
+static gboolean
 gst_wavparse_create_sourcepad (GstWavParse * wavparse)
 {
   gst_wavparse_destroy_sourcepad (wavparse);
@@ -238,6 +238,13 @@ gst_wavparse_create_sourcepad (GstWavParse * wavparse)
   wavparse->srcpad =
       gst_pad_new_from_template (gst_static_pad_template_get
       (&src_template_factory), "src");
+
+  if (!wavparse->srcpad) {
+    GST_ELEMENT_ERROR (wavparse, CORE, PAD,
+        ("Failed to allocate new pad from template"), (NULL));
+    return FALSE;
+  }
+
   gst_pad_use_explicit_caps (wavparse->srcpad);
   gst_pad_set_formats_function (wavparse->srcpad, gst_wavparse_get_formats);
   gst_pad_set_convert_function (wavparse->srcpad, gst_wavparse_pad_convert);
@@ -247,6 +254,8 @@ gst_wavparse_create_sourcepad (GstWavParse * wavparse)
   gst_pad_set_event_function (wavparse->srcpad, gst_wavparse_srcpad_event);
   gst_pad_set_event_mask_function (wavparse->srcpad,
       gst_wavparse_get_event_masks);
+
+  return TRUE;
 }
 
 static void
@@ -548,6 +557,8 @@ gst_wavparse_fmt (GstWavParse * wav)
   /* Note: gst_riff_create_audio_caps might nedd to fix values in
    * the header header depending on the format, so call it first */
   caps = gst_riff_create_audio_caps (header->format, NULL, header, NULL);
+  if (!caps)
+    return FALSE;
 
   wav->format = header->format;
   wav->rate = header->rate;
@@ -560,8 +571,20 @@ gst_wavparse_fmt (GstWavParse * wav)
   g_free (header);
 
   if (caps) {
-    gst_wavparse_create_sourcepad (wav);
-    gst_pad_set_explicit_caps (wav->srcpad, caps);
+    if (!gst_wavparse_create_sourcepad (wav))
+      return FALSE;
+
+    if (!gst_pad_set_explicit_caps (wav->srcpad, caps)) {
+      gchar *caps_str = gst_caps_to_string (caps);
+
+      GST_ELEMENT_ERROR (wav, CORE, PAD, (NULL),
+          ("failed to negotiate (try_set_caps with \"%s\" returned REFUSED)",
+              caps_str));
+      g_free (caps_str);
+      gst_caps_free (caps);
+      return FALSE;
+    }
+
     gst_caps_free (caps);
     gst_element_add_pad (GST_ELEMENT (wav), wav->srcpad);
     gst_element_no_more_pads (GST_ELEMENT (wav));
