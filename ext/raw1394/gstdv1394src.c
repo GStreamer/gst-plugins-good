@@ -40,6 +40,15 @@ GST_DEBUG_CATEGORY_STATIC (dv1394src_debug);
 #define NTSC_FRAMESIZE 120000
 #define NTSC_FRAMERATE 30
 
+/* return first and second 32 bit word from a 64 bit unsigned int */
+/* the slow versions:
+#define GST_GUINT64_FIRST(x)  (guint32) ((x) / (G_GINT64_CONSTANT(1) << 32))
+#define GST_GUINT64_SECOND(x) (guint32) ((x) % (G_GINT64_CONSTANT(1) << 32))
+*/
+
+#define GST_GUINT64_FIRST(x)  (guint32) ((x) >> 32)
+#define GST_GUINT64_SECOND(x) (guint32) ((x) & ((G_GINT64_CONSTANT(1) << 32) - 1))
+
 /* Filter signals and args */
 enum
 {
@@ -288,6 +297,8 @@ gst_dv1394src_set_property (GObject * object, guint prop_id,
       break;
     case ARG_GUID:
       filter->guid = g_value_get_uint64 (value);
+      GST_DEBUG_OBJECT (filter, "set guid to 0x%08x%08x",
+          GST_GUINT64_FIRST (filter->guid), GST_GUINT64_SECOND (filter->guid));
       break;
     default:
       break;
@@ -484,6 +495,7 @@ static int
 gst_dv1394src_discover_avc_node (GstDV1394Src * src)
 {
   int node = -1;
+  int nodecount = 0;
   int i, j = 0;
   int m = src->num_ports;
 
@@ -509,32 +521,51 @@ gst_dv1394src_discover_avc_node (GstDV1394Src * src)
       g_warning ("raw1394 - failed to get port info: %s.\n", strerror (errno));
       goto next;
     }
+    GST_DEBUG_OBJECT (src, "port %d is %s", j, pinf->name);
 
     /* tell raw1394 which host adapter to use */
     if (raw1394_set_port (handle, j) < 0) {
-      g_warning ("raw1394 - failed to set set port: %s.\n", strerror (errno));
+      g_warning ("raw1394 - failed to set port: %s.\n", strerror (errno));
       goto next;
     }
 
     /* now loop over all the nodes */
-    for (i = 0; i < raw1394_get_nodecount (handle); i++) {
-      /* are we looking for an explicit GUID */
+    nodecount = raw1394_get_nodecount (handle);
+    GST_DEBUG_OBJECT (src, "%d device nodes on port %d", nodecount, j);
+    for (i = 0; i < nodecount; i++) {
+      octlet_t guid = rom1394_get_guid (handle, i);
+
+      GST_DEBUG_OBJECT (src, "guid of node %d is 0x%08x%08x", i,
+          GST_GUINT64_FIRST (guid), GST_GUINT64_SECOND (guid));
+    }
+
+    for (i = 0; i < nodecount; i++) {
+      octlet_t guid = rom1394_get_guid (handle, i);
+
+      /* are we looking for an explicit GUID ? */
       if (src->guid != 0) {
-        if (src->guid == rom1394_get_guid (handle, i)) {
+        if (src->guid == guid) {
+          GST_DEBUG_OBJECT (src, "found requested node %d with guid 0x%08x%08x",
+              i, GST_GUINT64_FIRST (guid), GST_GUINT64_SECOND (guid));
           node = i;
           src->port = j;
           break;
         }
       } else {
+        /* we're not, so select first AV/C Tape Recorder Player node */
         rom1394_directory rom_dir;
 
-        /* select first AV/C Tape Reccorder Player node */
         if (rom1394_get_directory (handle, i, &rom_dir) < 0) {
           g_warning ("error reading config rom directory for node %d\n", i);
           continue;
         }
         if ((rom1394_get_node_type (&rom_dir) == ROM1394_NODE_TYPE_AVC) &&
             avc1394_check_subunit_type (handle, i, AVC1394_SUBUNIT_TYPE_VCR)) {
+          octlet_t guid = rom1394_get_guid (handle, i);
+
+          GST_DEBUG_OBJECT (src,
+              "found first AV/C unit with node %d and guid 0x%08x%08x", i,
+              GST_GUINT64_FIRST (guid), GST_GUINT64_SECOND (guid));
           node = i;
           src->port = j;
           break;
@@ -544,6 +575,7 @@ gst_dv1394src_discover_avc_node (GstDV1394Src * src)
   next:
     raw1394_destroy_handle (handle);
   }
+  GST_DEBUG_OBJECT (src, "returning avc node %d on port %d", node, src->port);
   return node;
 }
 
@@ -551,6 +583,7 @@ static GstElementStateReturn
 gst_dv1394src_change_state (GstElement * element)
 {
   GstDV1394Src *dv1394src;
+  nodeid_t irm_id = 0;
 
   g_return_val_if_fail (GST_IS_DV1394SRC (element), GST_STATE_FAILURE);
   dv1394src = GST_DV1394SRC (element);
@@ -595,6 +628,8 @@ gst_dv1394src_change_state (GstElement * element)
       GST_DEBUG_OBJECT (dv1394src, "successfully opened up 1394 connection");
       break;
     case GST_STATE_PAUSED_TO_PLAYING:
+      irm_id = raw1394_get_irm_id (dv1394src->handle);
+      GST_DEBUG_OBJECT (dv1394src, "starting iso_recv, irm_id is 0x%x", irm_id);
       if (raw1394_start_iso_rcv (dv1394src->handle, dv1394src->channel) < 0) {
         GST_ELEMENT_ERROR (dv1394src, RESOURCE, READ, (NULL),
             ("can't start 1394 iso receive"));
@@ -602,6 +637,8 @@ gst_dv1394src_change_state (GstElement * element)
       }
       if (dv1394src->use_avc) {
         /* start the VCR */
+        GST_DEBUG_OBJECT (dv1394src, "start avc vcr play on node %d",
+            dv1394src->avc_node);
         if (!avc1394_vcr_is_recording (dv1394src->handle, dv1394src->avc_node)
             && avc1394_vcr_is_playing (dv1394src->handle, dv1394src->avc_node)
             != AVC1394_VCR_OPERAND_PLAY_FORWARD) {
