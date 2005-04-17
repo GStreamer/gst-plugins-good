@@ -347,7 +347,7 @@ gst_esdsink_soundserver_running (GstEsdsink * esdsink)
   if (g_getenv ("ESPEAKER"))
     return TRUE;
 
-  return system ("ps ax | grep esd | grep -v grep &> /dev/null") == 0;
+  return system ("ps -e | grep esd | grep -v grep &> /dev/null") == 0;
 }
 
 static void
