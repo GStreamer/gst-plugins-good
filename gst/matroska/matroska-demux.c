@@ -893,6 +893,13 @@ gst_matroska_demux_add_stream (GstMatroskaDemux * demux)
       g_assert (0);
   }
 
+  if (context->language) {
+    if (!list)
+      list = gst_tag_list_new ();
+    gst_tag_list_add (list, GST_TAG_MERGE_REPLACE,
+        GST_TAG_LANGUAGE_CODE, context->language, NULL);
+  }
+
   /* the pad in here */
   context->pad = gst_pad_new_from_template (templ, padname);
   context->caps = caps ? caps : gst_caps_new_empty ();
