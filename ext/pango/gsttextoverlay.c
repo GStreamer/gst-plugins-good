@@ -217,7 +217,7 @@ render_text (GstTextOverlay * overlay)
 
   pango_layout_get_pixel_extents (overlay->layout, &ink_rect, &logical_rect);
   resize_bitmap (overlay, ink_rect.width, ink_rect.height + ink_rect.y);
-  pango_ft2_render_layout (&overlay->bitmap, overlay->layout, 0, 0);
+  pango_ft2_render_layout (&overlay->bitmap, overlay->layout, 1, 0);
   overlay->baseline_y = ink_rect.y;
 }
 
@@ -317,7 +317,7 @@ gst_text_overlay_blit_yuv420 (GstTextOverlay * overlay, FT_Bitmap * bitmap,
   int rowinc, bit_rowinc, uv_rowinc;
   guchar *p, *bitp, *u_p;
   int video_width = overlay->width, video_height = overlay->height;
-  int bitmap_x0 = x0 < 1 ? -(x0 - 1) : 1;       /* 1 pixel border */
+  int bitmap_x0 = 0;            //x0 < 1 ? -(x0 - 1) : 1;       /* 1 pixel border */
   int bitmap_y0 = y0 < 1 ? -(y0 - 1) : 1;       /* 1 pixel border */
   int bitmap_width = bitmap->width - bitmap_x0;
   int bitmap_height = bitmap->rows - bitmap_y0;
@@ -339,7 +339,7 @@ gst_text_overlay_blit_yuv420 (GstTextOverlay * overlay, FT_Bitmap * bitmap,
   x1 = x0 + bitmap_x0;
   p = pixbuf + video_width * y1 + x1;
   bitp = bitmap->buffer + bitmap->pitch * bitmap_y0 + bitmap_x0;
-  for (y = bitmap_y0; y < bitmap_height; y++) {
+  for (y = bitmap_y0; y < bitmap_y0 + bitmap_height; y++) {
     int n;
 
     for (n = bitmap_width; n > 0; --n) {
@@ -368,7 +368,7 @@ gst_text_overlay_blit_yuv420 (GstTextOverlay * overlay, FT_Bitmap * bitmap,
   skip_y = 0;
   skip_x = 0;
 
-  for (; y < bitmap_height; y++) {
+  for (; y < bitmap_y0 + bitmap_height; y++) {
     int n;
 
     x1 = x0 + bitmap_x0;
