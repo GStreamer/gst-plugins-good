@@ -52,7 +52,7 @@ enum
   ARG_PORT,                     /* the encoder port number on the server */
   ARG_PASSWORD,                 /* the encoder password on the server */
   ARG_PUBLIC,                   /* is this stream public? */
-  ARG_NAME,                     /* Name of the stream */
+  ARG_STREAMNAME,               /* Name of the stream */
   ARG_DESCRIPTION,              /* Description of the stream */
   ARG_GENRE,                    /* Genre of the stream */
 
@@ -183,7 +183,7 @@ gst_shout2send_class_init (GstShout2sendClass * klass)
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_PASSWORD, g_param_spec_string ("password", "password", "password", NULL, G_PARAM_READWRITE));    /* CHECKME */
 
   /* metadata */
-  g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_NAME, g_param_spec_string ("name", "name", "name", NULL, G_PARAM_READWRITE));    /* CHECKME */
+  g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_STREAMNAME, g_param_spec_string ("streamname", "streamname", "name of the stream", NULL, G_PARAM_READWRITE));    /* CHECKME */
 
   g_object_class_install_property (G_OBJECT_CLASS (klass), ARG_DESCRIPTION, g_param_spec_string ("description", "description", "description", NULL, G_PARAM_READWRITE));        /* CHECKME */
 
@@ -234,7 +234,7 @@ gst_shout2send_init (GstShout2send * shout2send)
   shout2send->ip = g_strdup ("127.0.0.1");
   shout2send->port = 8000;
   shout2send->password = g_strdup ("hackme");
-  shout2send->name = g_strdup ("");
+  shout2send->streamname = g_strdup ("");
   shout2send->description = g_strdup ("");
   shout2send->genre = g_strdup ("");
   shout2send->mount = g_strdup ("");
@@ -448,10 +448,10 @@ gst_shout2send_set_property (GObject * object, guint prop_id,
       shout2send->password = g_strdup (g_value_get_string (value));
       break;
 
-    case ARG_NAME:             /* Name of the stream */
-      if (shout2send->name)
-        g_free (shout2send->name);
-      shout2send->name = g_strdup (g_value_get_string (value));
+    case ARG_STREAMNAME:       /* Name of the stream */
+      if (shout2send->streamname)
+        g_free (shout2send->streamname);
+      shout2send->streamname = g_strdup (g_value_get_string (value));
       break;
 
     case ARG_DESCRIPTION:      /* Description of the stream */
@@ -511,8 +511,8 @@ gst_shout2send_get_property (GObject * object, guint prop_id, GValue * value,
       g_value_set_string (value, shout2send->password);
       break;
 
-    case ARG_NAME:             /* Name of the stream */
-      g_value_set_string (value, shout2send->name);
+    case ARG_STREAMNAME:       /* Name of the stream */
+      g_value_set_string (value, shout2send->streamname);
       break;
 
     case ARG_DESCRIPTION:      /* Description of the stream */
@@ -632,8 +632,8 @@ gst_shout2send_change_state (GstElement * element)
       }
 
       if (shout_set_name (shout2send->conn,
-              shout2send->name) != SHOUTERR_SUCCESS) {
-        g_error ("Error setting name: %s\n",
+              shout2send->streamname) != SHOUTERR_SUCCESS) {
+        g_error ("Error setting stream name: %s\n",
             shout_get_error (shout2send->conn));
       }
 

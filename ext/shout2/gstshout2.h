@@ -50,7 +50,7 @@ struct _GstShout2send {
   gchar *ip;
   guint port;
   gchar *password;
-  gchar *name;
+  gchar *streamname;
   gchar *description;
   gchar *genre;
   gchar *mount;
