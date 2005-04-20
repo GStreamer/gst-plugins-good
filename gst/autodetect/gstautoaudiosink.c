@@ -238,6 +238,8 @@ gst_auto_audio_sink_detect (GstAutoAudioSink * sink, gboolean fake)
   if (sink->pad) {
     GST_DEBUG_OBJECT (sink, "Re-doing existing ghostpad");
     gst_pad_add_ghost_pad (gst_element_get_pad (sink->kid, "sink"), sink->pad);
+    if (GST_ELEMENT (sink)->pads == NULL)
+      gst_element_add_pad (GST_ELEMENT (sink), sink->pad);
   } else {
     GST_DEBUG_OBJECT (sink, "Creating new ghostpad");
     sink->pad = gst_ghost_pad_new ("sink",
