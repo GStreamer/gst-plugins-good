@@ -44,13 +44,13 @@ struct _GstDvdLpcmDec {
 
   GstPad *sinkpad,*srcpad;
 
-  guint rate;
-  guint channels;
-  guint width;
-  guint out_width;
-  guint dynamic_range;
-  guint emphasis;
-  guint mute;
+  gint rate;
+  gint channels;
+  gint width;
+  gint out_width;
+  gint dynamic_range;
+  gboolean emphasis;
+  gboolean mute;
   
   guint64 offset;  
 };

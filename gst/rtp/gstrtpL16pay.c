@@ -190,7 +190,7 @@ gst_rtpL16enc_set_clock (GstElement * element, GstClock * clock)
 
 gboolean
 get_payload_type (const gchar * rtpmap,
-    guint sample_rate, guint channels, guchar * payload_type)
+    gint sample_rate, gint channels, guchar * payload_type)
 {
   GST_DEBUG ("r=%d c=%d", sample_rate, channels);
   if (sample_rate == 44100)

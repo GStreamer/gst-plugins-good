@@ -39,7 +39,7 @@ extern "C"
     GstPad *sinkpad;
     GstPad *srcpad;
 
-    guint frequency;
+    gint frequency;
 
     /* the timestamp of the next frame */
     guint64 next_time;

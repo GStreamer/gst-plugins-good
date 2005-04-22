@@ -42,9 +42,9 @@ extern "C"
 
     gchar *rtpmap;
 
-    guint endianness;
-    guint sample_rate;
-    guint channels;
+    gint endianness;
+    gint sample_rate;
+    gint channels;
     guint8 payload_type;
 
     /* the rtp timestamp of the next frame */
