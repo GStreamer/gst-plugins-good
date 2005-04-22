@@ -248,7 +248,7 @@ gst_matroska_mux_init (GstMatroskaMux * mux)
 }
 
 static guint32
-gst_matroska_mux_create_uid ()
+gst_matroska_mux_create_uid (void)
 {
   guint32 uid = 0;
   GRand *rand = g_rand_new ();

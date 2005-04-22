@@ -238,11 +238,15 @@ gst_dicetv_draw (GstVideofilter * videofilter, void *d, void *s)
   gint map_x, map_y, map_i;
   gint base;
   gint dx, dy, di;
-  gint video_width = filter->width;
-  gint g_cube_bits = filter->g_cube_bits;
-  gint g_cube_size = filter->g_cube_size;
+  gint video_width;
+  gint g_cube_bits;
+  gint g_cube_size;
 
   filter = GST_DICETV (videofilter);
+  video_width = filter->width;
+  g_cube_bits = filter->g_cube_bits;
+  g_cube_size = filter->g_cube_size;
+
   src = (guint32 *) s;
   dest = (guint32 *) d;
 

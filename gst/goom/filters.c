@@ -71,7 +71,7 @@ static char noisify = 2;
 static int middleX, middleY;
 static unsigned char sqrtperte = 16;
 
-static int *firedec = 0;
+static int *firedec = NULL;
 
 
 /* retourne x>>s , en testant le signe de x */
@@ -303,8 +303,8 @@ zoomFilterFastRGB (Uint * pix1,
   Color col1, col2, col3, col4;
   Uint position;
 
-  static unsigned int *pos10 = 0;
-  static unsigned int *c1 = 0, *c2 = 0, *c3 = 0, *c4 = 0;
+  static unsigned int *pos10 = NULL;
+  static unsigned int *c1 = NULL, *c2 = NULL, *c3 = NULL, *c4 = NULL;
 #endif
 
   if ((prevX != resx) || (prevY != resy)) {
@@ -321,7 +321,7 @@ zoomFilterFastRGB (Uint * pix1,
       free (c4);
     if (pos10)
       free (pos10);
-    c1 = c2 = c3 = c4 = pos10 = 0;
+    c1 = c2 = c3 = c4 = pos10 = NULL;
 #else
     if (coeffs)
       free (freecoeffs);
@@ -332,7 +332,7 @@ zoomFilterFastRGB (Uint * pix1,
     firstTime = 1;
     if (firedec)
       free (firedec);
-    firedec = 0;
+    firedec = NULL;
   }
 
   if (zf) {

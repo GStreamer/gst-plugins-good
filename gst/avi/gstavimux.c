@@ -312,8 +312,9 @@ gst_avimux_vidsinkconnect (GstPad * pad, const GstCaps * vscaps)
   /* global */
   avimux->vids.size = sizeof (gst_riff_strf_vids);
   avimux->vids.planes = 1;
-  ret = gst_structure_get_int (structure, "width", &avimux->vids.width);
-  ret &= gst_structure_get_int (structure, "height", &avimux->vids.height);
+  ret = gst_structure_get_int (structure, "width", (int *) &avimux->vids.width);
+  ret &=
+      gst_structure_get_int (structure, "height", (int *) &avimux->vids.height);
   ret &= gst_structure_get_double (structure, "framerate", &fps);
   if (!ret)
     return GST_PAD_LINK_REFUSED;
@@ -1160,7 +1161,8 @@ gst_avimux_do_audio_buffer (GstAviMux * avimux)
     avimux->data_size += total_size;
     avimux->audio_size += GST_BUFFER_SIZE (data);
     avimux->audio_time += GST_BUFFER_DURATION (data);
-    gst_avimux_add_index (avimux, "01wb", 0x0, GST_BUFFER_SIZE (data));
+    gst_avimux_add_index (avimux, (guchar *) "01wb", 0x0,
+        GST_BUFFER_SIZE (data));
   }
 
   gst_pad_push (avimux->srcpad, GST_DATA (header));
@@ -1211,7 +1213,8 @@ gst_avimux_do_video_buffer (GstAviMux * avimux)
       flags |= 0x10;
     avimux->data_size += total_size;
     avimux->num_frames++;
-    gst_avimux_add_index (avimux, "00db", flags, GST_BUFFER_SIZE (data));
+    gst_avimux_add_index (avimux, (guchar *) "00db", flags,
+        GST_BUFFER_SIZE (data));
   }
 
   gst_pad_push (avimux->srcpad, GST_DATA (header));

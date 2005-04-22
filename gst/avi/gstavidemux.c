@@ -2145,7 +2145,8 @@ gst_avi_demux_stream_data (GstAviDemux * avi)
     /* get time of this buffer */
     stream = &avi->stream[stream_nr];
     format = GST_FORMAT_TIME;
-    gst_pad_query (stream->pad, GST_QUERY_POSITION, &format, &next_ts);
+    gst_pad_query (stream->pad, GST_QUERY_POSITION, &format,
+        (gint64 *) & next_ts);
 
     /* set delay (if any) */
     if (stream->strh->init_frames == stream->current_frame &&
@@ -2170,7 +2171,8 @@ gst_avi_demux_stream_data (GstAviDemux * avi)
         }
 
         GST_BUFFER_TIMESTAMP (buf) = next_ts;
-        gst_pad_query (stream->pad, GST_QUERY_POSITION, &format, &dur_ts);
+        gst_pad_query (stream->pad, GST_QUERY_POSITION, &format,
+            (gint64 *) & dur_ts);
         GST_BUFFER_DURATION (buf) = dur_ts - next_ts;
         GST_DEBUG_OBJECT (avi,
             "Pushing buffer with time=%" GST_TIME_FORMAT " over pad %s",

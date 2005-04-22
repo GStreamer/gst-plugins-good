@@ -243,7 +243,7 @@ gst_multipart_demux_chain (GstPad * pad, GstData * buffer)
 {
   GstMultipartDemux *multipart;
   gint size;
-  gchar *data;
+  guchar *data;
   gint matchpos;
 
   /* handle events */

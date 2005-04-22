@@ -1284,7 +1284,7 @@ gst_matroska_demux_parse_index (GstMatroskaDemux * demux, gboolean prevent_eos)
           switch (id) {
               /* one single index entry ('point') */
             case GST_MATROSKA_ID_CUETIME:{
-              gint64 time;
+              guint64 time;
 
               if (!gst_ebml_read_uint (ebml, &id, &time)) {
                 res = FALSE;
@@ -1846,7 +1846,8 @@ gst_matroska_demux_parse_blockgroup (GstMatroskaDemux * demux,
   guint64 block_duration = 0;
   GstBuffer *buf = NULL;
   gint stream = 0, n, laces = 0;
-  guint size = 0, *lace_size = NULL;
+  guint size = 0;
+  gint *lace_size = NULL;
   gint64 time = 0;
 
   while (res) {

@@ -2,6 +2,7 @@
 #include "config.h"
 #endif
 
+#include <stdio.h>
 #include "graphic.h"
 
 const Color BLACK = { 0, 0, 0 };
@@ -17,5 +18,5 @@ unsigned int SIZE;
 unsigned int HEIGHT;
 unsigned int WIDTH;
 
-int *rand_tab = 0;
+int *rand_tab = NULL;
 unsigned short int rand_pos = 0;

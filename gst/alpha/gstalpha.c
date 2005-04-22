@@ -500,7 +500,7 @@ gst_alpha_set_i420 (guint8 * src, guint8 * dest, gint width, gint height,
 }
 
 static void
-gst_alpha_chroma_key_ayuv (gchar * src, gchar * dest, gint width, gint height,
+gst_alpha_chroma_key_ayuv (guchar * src, guchar * dest, gint width, gint height,
     GstAlpha * alpha)
 {
   gint b_alpha;
@@ -520,8 +520,8 @@ gst_alpha_chroma_key_ayuv (gchar * src, gchar * dest, gint width, gint height,
   stride = ROUND_UP_4 (width);
   size = stride * height;
 
-  src1 = src;
-  dest1 = dest;
+  src1 = (guint8 *) src;
+  dest1 = (guint8 *) dest;
 
   wrap = stride - width;
 
@@ -611,7 +611,7 @@ gst_alpha_chroma_key_ayuv (gchar * src, gchar * dest, gint width, gint height,
 /* based on http://www.cs.utah.edu/~michael/chroma/
  */
 static void
-gst_alpha_chroma_key_i420 (gchar * src, gchar * dest, gint width, gint height,
+gst_alpha_chroma_key_i420 (guchar * src, guchar * dest, gint width, gint height,
     GstAlpha * alpha)
 {
   gint b_alpha;
@@ -633,13 +633,13 @@ gst_alpha_chroma_key_i420 (gchar * src, gchar * dest, gint width, gint height,
   stride2 = ROUND_UP_8 (width) / 2;
   size2 = stride2 * height / 2;
 
-  srcY1 = src;
-  srcY2 = src + stride;
+  srcY1 = (guint8 *) src;
+  srcY2 = (guint8 *) src + stride;
   srcU = srcY1 + size;
   srcV = srcU + size2;
 
-  dest1 = dest;
-  dest2 = dest + width * 4;
+  dest1 = (guint8 *) dest;
+  dest2 = (guint8 *) dest + width * 4;
 
   wrap = 2 * stride - 2 * (width / 2);
   wrap2 = stride2 - width / 2;

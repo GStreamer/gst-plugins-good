@@ -171,7 +171,7 @@ gst_auparse_chain (GstPad * pad, GstData * _data)
 {
   GstBuffer *buf = GST_BUFFER (_data);
   GstAuParse *auparse;
-  gchar *data;
+  guchar *data;
   glong size;
   GstCaps *tempcaps;
   gint law = 0, depth = 0, ieee = 0;

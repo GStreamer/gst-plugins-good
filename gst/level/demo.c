@@ -59,7 +59,7 @@ idler (gpointer data)
 }
 
 static void
-setup_gui ()
+setup_gui (void)
 {
   GtkWidget *window;
   GtkWidget *vbox;

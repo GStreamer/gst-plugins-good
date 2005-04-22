@@ -47,7 +47,7 @@ G_BEGIN_DECLS
 typedef struct {
   gint 		 index_nr;
   gint 		 stream_nr;
-  guint64 	 ts, dur;
+  gint64 	 ts, dur;
   guint32	 flags;
   guint64	 offset;
   gint 		 size;
@@ -72,7 +72,7 @@ typedef struct {
   gint		 current_entry;
 
   /* delay in time (init_frames) */
-  guint64 	 delay;
+  gint64 	 delay;
 
   /* stream length */
   guint64	 total_bytes;

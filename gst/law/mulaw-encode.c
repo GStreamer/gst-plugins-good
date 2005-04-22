@@ -208,7 +208,7 @@ gst_mulawenc_chain (GstPad * pad, GstData * _data)
   outbuf = gst_buffer_new_and_alloc (GST_BUFFER_SIZE (buf) / 2);
   GST_BUFFER_TIMESTAMP (outbuf) = GST_BUFFER_TIMESTAMP (buf);
   GST_BUFFER_DURATION (outbuf) = GST_BUFFER_DURATION (buf);
-  mulaw_data = (gint8 *) GST_BUFFER_DATA (outbuf);
+  mulaw_data = (guint8 *) GST_BUFFER_DATA (outbuf);
   mulaw_encode (linear_data, mulaw_data, GST_BUFFER_SIZE (outbuf));
 
   gst_buffer_unref (buf);

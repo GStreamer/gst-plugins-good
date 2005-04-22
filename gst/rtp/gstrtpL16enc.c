@@ -255,7 +255,7 @@ gst_rtpL16enc_chain (GstPad * pad, GstData * _data)
   GstBuffer *buf = GST_BUFFER (_data);
   GstRtpL16Enc *rtpL16enc;
   GstBuffer *outbuf;
-  gchar *samples;
+  guchar *samples;
   guint16 bytes_remaining, space_for_samples;
   guint16 rtp_fixed_header;
   GstClockTime timestamp;
@@ -289,7 +289,7 @@ gst_rtpL16enc_chain (GstPad * pad, GstData * _data)
   samples = GST_BUFFER_DATA (buf);
   bytes_remaining = GST_BUFFER_SIZE (buf);
   while (bytes_remaining > 0) {
-    gchar *packet;
+    guchar *packet;
     guint32 this_packet_len;
     guint64 this_samples;
 
