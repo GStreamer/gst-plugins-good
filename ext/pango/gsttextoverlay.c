@@ -217,7 +217,7 @@ render_text (GstTextOverlay * overlay)
 
   pango_layout_get_pixel_extents (overlay->layout, &ink_rect, &logical_rect);
   resize_bitmap (overlay, ink_rect.width, ink_rect.height + ink_rect.y);
-  pango_ft2_render_layout (&overlay->bitmap, overlay->layout, 1, 0);
+  pango_ft2_render_layout (&overlay->bitmap, overlay->layout, -ink_rect.x, 0);
   overlay->baseline_y = ink_rect.y;
 }
 
