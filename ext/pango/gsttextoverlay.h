@@ -43,6 +43,7 @@ struct _GstTextOverlay {
 
     GstPad               *video_sinkpad;
     GstPad               *text_sinkpad;
+    gboolean              text_eos;
     GstPad               *srcpad;
     gint                  width;
     gint                  height;

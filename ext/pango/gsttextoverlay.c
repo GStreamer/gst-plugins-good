@@ -303,6 +303,8 @@ gst_textoverlay_event (GstPad * pad, GstEvent * event)
       gst_data_unref (overlay->current_data);
       overlay->current_data = NULL;
     }
+    overlay->need_render = TRUE;
+    overlay->text_eos = FALSE;
   }
 
   return gst_pad_send_event (GST_PAD_PEER (overlay->video_sinkpad), event);
@@ -486,17 +488,18 @@ gst_textoverlay_loop (GstElement * element)
       }
       gst_pad_event_default (overlay->video_sinkpad, event);
       if (type == GST_EVENT_EOS) {
-        /* EOS text stream */
-        GstData *data = NULL;
+        if (!overlay->text_eos) {
+          /* EOS text stream */
+          GstData *data = NULL;
 
-        do {
-          if (data)
-            gst_data_unref (data);
-          data = gst_pad_pull (overlay->text_sinkpad);
-        } while (!GST_IS_EVENT (data) ||
-            GST_EVENT_TYPE (data) == GST_EVENT_EOS);
-        gst_data_unref (data);
-
+          do {
+            if (data)
+              gst_data_unref (data);
+            data = gst_pad_pull (overlay->text_sinkpad);
+          } while (!GST_IS_EVENT (data) ||
+              GST_EVENT_TYPE (data) == GST_EVENT_EOS);
+          gst_data_unref (data);
+        }
         return;
       }
       video_frame = NULL;
@@ -522,7 +525,7 @@ gst_textoverlay_loop (GstElement * element)
     GST_DEBUG ("attempting to pull text data");
 
     /* read all text buffers until we get one "in the future" */
-    if (!GST_PAD_IS_USABLE (overlay->text_sinkpad)) {
+    if (!GST_PAD_IS_USABLE (overlay->text_sinkpad) || overlay->text_eos) {
       break;
     }
     do {
@@ -535,13 +538,16 @@ gst_textoverlay_loop (GstElement * element)
         GST_DEBUG ("Received text data event of type %d", type);
         overlay->next_data = NULL;
         gst_event_unref (event);
-        if (type == GST_EVENT_EOS)
+        if (type == GST_EVENT_EOS) {
+          overlay->text_eos = TRUE;
           break;
-        else if (type == GST_EVENT_INTERRUPT)
+        } else if (type == GST_EVENT_INTERRUPT)
           return;
       }
     } while (!overlay->next_data);
 
+    if (!overlay->next_data)
+      break;
     if (PAST_END (overlay->next_data, now)) {
       GST_DEBUG ("Received %s is past end (%" GST_TIME_FORMAT " + %"
           GST_TIME_FORMAT " < %" GST_TIME_FORMAT ")",
@@ -630,12 +636,11 @@ gst_textoverlay_change_state (GstElement * element)
     case GST_STATE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_PAUSED_TO_READY:
+      overlay->text_eos = FALSE;
       break;
   }
 
-  parent_class->change_state (element);
-
-  return GST_STATE_SUCCESS;
+  return parent_class->change_state (element);
 }
 
 static void
@@ -703,6 +708,7 @@ gst_textoverlay_init (GstTextOverlay * overlay)
 
   overlay->default_text = g_strdup ("");
   overlay->need_render = TRUE;
+  overlay->text_eos = FALSE;
 
   gst_element_set_loop_function (GST_ELEMENT (overlay), gst_textoverlay_loop);
 
