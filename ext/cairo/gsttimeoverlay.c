@@ -34,6 +34,12 @@
 
 #include <cairo.h>
 
+/* This is for cairo 0.4, remove once we require 0.5 */
+#ifndef CAIRO_API_SHAKEUP_FLAG_DAY
+#define cairo_set_source_rgba(cr,red,green,blue,alpha) {\
+    cairo_set_rgb_color(cr,red,green,blue); \
+    cairo_set_alpha(cr,alpha); }
+#endif
 
 /* GstTimeoverlay signals and args */
 enum
@@ -245,7 +251,7 @@ gst_timeoverlay_planar411 (GstVideofilter * videofilter, void *dest, void *src)
   int b_width;
   char *string;
   int i, j;
-  uint8_t *image;
+  unsigned char *image;
   cairo_text_extents_t extents;
 
   g_return_if_fail (GST_IS_TIMEOVERLAY (videofilter));
@@ -265,7 +271,8 @@ gst_timeoverlay_planar411 (GstVideofilter * videofilter, void *dest, void *src)
 
   cairo_save (timeoverlay->cr);
   cairo_rectangle (timeoverlay->cr, 0, 0, width, timeoverlay->text_height);
-  cairo_set_alpha (timeoverlay->cr, 0);
+  cairo_set_source_rgba (timeoverlay->cr, 0, 0, 0, 0);
+
   cairo_set_operator (timeoverlay->cr, CAIRO_OPERATOR_SRC);
   cairo_fill (timeoverlay->cr);
   cairo_restore (timeoverlay->cr);
@@ -293,7 +300,7 @@ gst_timeoverlay_planar411 (GstVideofilter * videofilter, void *dest, void *src)
   memcpy (dest, src, videofilter->from_buf_size);
   for (i = 0; i < timeoverlay->text_height; i++) {
     for (j = 0; j < b_width; j++) {
-      ((uint8_t *) dest)[i * width + j] = image[(i * width + j) * 4 + 0];
+      ((unsigned char *) dest)[i * width + j] = image[(i * width + j) * 4 + 0];
     }
   }
   for (i = 0; i < timeoverlay->text_height / 2; i++) {

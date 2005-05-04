@@ -86,6 +86,13 @@ static GstElementClass *parent_class = NULL;
 
 /*static guint gst_textoverlay_signals[LAST_SIGNAL] = { 0 }; */
 
+/* This is for cairo 0.4, remove once we require 0.5 */
+#ifndef CAIRO_API_SHAKEUP_FLAG_DAY
+#define cairo_set_source_rgba(cr,red,green,blue,alpha) {\
+    cairo_set_rgb_color(cr,red,green,blue); \
+    cairo_set_alpha(cr,alpha); }
+#endif
+
 
 GType
 gst_textoverlay_get_type (void)
@@ -229,16 +236,16 @@ gst_textoverlay_render_text (GstTextOverlay * overlay, gchar * text,
 
   cairo_save (overlay->cr);
   cairo_rectangle (overlay->cr, 0, 0, overlay->width, overlay->text_height);
-  cairo_set_rgb_color (overlay->cr, 0, 0, 0);
-  cairo_set_alpha (overlay->cr, 1.0);
+  cairo_set_source_rgba (overlay->cr, 0, 0, 0, 1.0);
+
   cairo_set_operator (overlay->cr, CAIRO_OPERATOR_SRC);
   cairo_fill (overlay->cr);
   cairo_restore (overlay->cr);
 
   cairo_save (overlay->cr);
   cairo_text_extents (overlay->cr, string, &extents);
-  cairo_set_rgb_color (overlay->cr, 1, 1, 1);
-  cairo_set_alpha (overlay->cr, 1.0);
+  cairo_set_source_rgba (overlay->cr, 1, 1, 1, 1.0);
+
   switch (overlay->halign) {
     case GST_TEXT_OVERLAY_HALIGN_LEFT:
       x = overlay->x0;
@@ -267,16 +274,14 @@ gst_textoverlay_render_text (GstTextOverlay * overlay, gchar * text,
 
   cairo_save (overlay->cr);
   cairo_rectangle (overlay->cr, 0, 0, overlay->width, overlay->text_height);
-  cairo_set_rgb_color (overlay->cr, 0, 0, 0);
-  cairo_set_alpha (overlay->cr, 1.0);
+  cairo_set_source_rgba (overlay->cr, 0, 0, 0, 1.0);
   cairo_set_operator (overlay->cr, CAIRO_OPERATOR_SRC);
   cairo_fill (overlay->cr);
   cairo_restore (overlay->cr);
 
   cairo_save (overlay->cr);
   cairo_move_to (overlay->cr, x, y);
-  cairo_set_rgb_color (overlay->cr, 1, 1, 1);
-  cairo_set_alpha (overlay->cr, 1.0);
+  cairo_set_source_rgba (overlay->cr, 1, 1, 1, 1.0);
   cairo_set_line_width (overlay->cr, 1.0);
   cairo_text_path (overlay->cr, string);
   cairo_stroke (overlay->cr);
