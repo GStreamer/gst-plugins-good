@@ -248,7 +248,7 @@ gst_udpsrc_get (GstPad * pad)
       }
 
       buf[ret] = '\0';
-      doc = xmlParseMemory (buf, ret);
+      doc = xmlParseMemory ((const char *) buf, ret);
       caps = gst_caps_load_thyself (doc->xmlRootNode);
       if (caps == NULL) {
         return NULL;

@@ -272,6 +272,7 @@ gst_videomixer_pad_sinkconnect (GstPad * pad, const GstCaps * vscaps)
   GstVideoMixer *mix;
   GstVideoMixerPad *mixpad;
   GstStructure *structure;
+  gint in_width, in_height;
 
   mix = GST_VIDEO_MIXER (gst_pad_get_parent (pad));
   mixpad = GST_VIDEO_MIXER_PAD (pad);
@@ -280,9 +281,14 @@ gst_videomixer_pad_sinkconnect (GstPad * pad, const GstCaps * vscaps)
 
   structure = gst_caps_get_structure (vscaps, 0);
 
-  gst_structure_get_int (structure, "width", &mixpad->in_width);
-  gst_structure_get_int (structure, "height", &mixpad->in_height);
-  gst_structure_get_double (structure, "framerate", &mixpad->in_framerate);
+  if (!gst_structure_get_int (structure, "width", &in_width)
+      || !gst_structure_get_int (structure, "height", &in_height)
+      || !gst_structure_get_double (structure, "framerate",
+          &mixpad->in_framerate))
+    return GST_PAD_LINK_REFUSED;
+
+  mixpad->in_width = in_width;
+  mixpad->in_height = in_height;
 
   mixpad->xpos = 0;
   mixpad->ypos = 0;

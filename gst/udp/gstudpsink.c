@@ -188,8 +188,9 @@ gst_udpsink_sink_link (GstPad * pad, const GstCaps * caps)
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons (udpsink->port + 1);
 
-  doc = xmlNewDoc ("1.0");
-  doc->xmlRootNode = xmlNewDocNode (doc, NULL, "NewCaps", NULL);
+  doc = xmlNewDoc ((const xmlChar *) "1.0");
+  doc->xmlRootNode =
+      xmlNewDocNode (doc, NULL, (const xmlChar *) "NewCaps", NULL);
 
   gst_caps_save_thyself (caps, doc->xmlRootNode);
 
