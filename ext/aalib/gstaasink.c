@@ -327,8 +327,8 @@ gst_aasink_scale (GstAASink * aasink, gchar * src, gchar * dest,
     }
     xpos = 0x10000;
     {
-      guchar *destp = dest;
-      guchar *srcp = src;
+      guchar *destp = (guchar *) dest;
+      guchar *srcp = (guchar *) src;
 
       for (x = dw; x; x--) {
         while (xpos >= 0x10000L) {
@@ -356,8 +356,8 @@ gst_aasink_chain (GstPad * pad, GstData * _data)
 
   aasink = GST_AASINK (gst_pad_get_parent (pad));
 
-  gst_aasink_scale (aasink, GST_BUFFER_DATA (buf),      /* src */
-      aa_image (aasink->context),       /* dest */
+  gst_aasink_scale (aasink, (gchar *) GST_BUFFER_DATA (buf),    /* src */
+      (gchar *) aa_image (aasink->context),     /* dest */
       aasink->width,            /* sw */
       aasink->height,           /* sh */
       aa_imgwidth (aasink->context),    /* dw */

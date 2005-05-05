@@ -883,13 +883,13 @@ gst_speexenc_chain (GstPad * pad, GstData * _data)
       gst_speexenc_set_metadata (speexenc);
 
       /* create header buffer */
-      data = speex_header_to_packet (&speexenc->header, &data_len);
+      data = (guchar *) speex_header_to_packet (&speexenc->header, &data_len);
       buf1 = gst_speexenc_buffer_from_data (speexenc, data, data_len, 0);
 
       /* create comment buffer */
       buf2 =
-          gst_speexenc_buffer_from_data (speexenc, speexenc->comments,
-          speexenc->comment_len, 0);
+          gst_speexenc_buffer_from_data (speexenc,
+          (guchar *) speexenc->comments, speexenc->comment_len, 0);
 
       /* mark and put on caps */
       caps = gst_pad_get_caps (speexenc->srcpad);
@@ -947,8 +947,8 @@ gst_speexenc_chain (GstPad * pad, GstData * _data)
             gst_pad_alloc_buffer (speexenc->srcpad, GST_BUFFER_OFFSET_NONE,
             outsize);
         written =
-            speex_bits_write (&speexenc->bits, GST_BUFFER_DATA (outbuf),
-            outsize);
+            speex_bits_write (&speexenc->bits,
+            (gchar *) GST_BUFFER_DATA (outbuf), outsize);
         g_assert (written == outsize);
         speex_bits_reset (&speexenc->bits);
 

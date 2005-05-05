@@ -295,7 +295,7 @@ gst_flac_tag_chain (GstPad * pad, GstData * data)
       return;
     }
 
-    if (strncmp (GST_BUFFER_DATA (tag->buffer), FLAC_MAGIC,
+    if (strncmp ((gchar *) GST_BUFFER_DATA (tag->buffer), FLAC_MAGIC,
             FLAC_MAGIC_SIZE) == 0) {
       GstBuffer *sub;
 

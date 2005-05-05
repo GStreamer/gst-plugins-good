@@ -708,10 +708,12 @@ gst_dvdec_handle_sink_event (GstDVDec * dvdec)
       format = GST_FORMAT_TIME;
       /* try to get a timestamp from the discont formats */
       for (i = 0; i < GST_EVENT_DISCONT_OFFSET_LEN (event); i++) {
+        gint64 next_ts;
+
         if (gst_pad_convert (dvdec->sinkpad,
                 GST_EVENT_DISCONT_OFFSET (event, i).format,
-                GST_EVENT_DISCONT_OFFSET (event, i).value,
-                &format, &dvdec->next_ts)) {
+                GST_EVENT_DISCONT_OFFSET (event, i).value, &format, &next_ts)) {
+          dvdec->next_ts = next_ts;
           found = TRUE;
           break;
         }

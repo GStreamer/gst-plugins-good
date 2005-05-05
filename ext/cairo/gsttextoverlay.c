@@ -230,7 +230,7 @@ gst_textoverlay_render_text (GstTextOverlay * overlay, gchar * text,
     g_free (overlay->text_fill_image);
   overlay->text_fill_image =
       g_malloc (4 * overlay->width * overlay->text_height);
-  cairo_set_target_image (overlay->cr, overlay->text_fill_image,
+  cairo_set_target_image (overlay->cr, (gchar *) overlay->text_fill_image,
       CAIRO_FORMAT_ARGB32, overlay->width, overlay->text_height,
       overlay->width * 4);
 
@@ -243,7 +243,7 @@ gst_textoverlay_render_text (GstTextOverlay * overlay, gchar * text,
   cairo_restore (overlay->cr);
 
   cairo_save (overlay->cr);
-  cairo_text_extents (overlay->cr, string, &extents);
+  cairo_text_extents (overlay->cr, (guchar *) string, &extents);
   cairo_set_source_rgba (overlay->cr, 1, 1, 1, 1.0);
 
   switch (overlay->halign) {
@@ -261,14 +261,14 @@ gst_textoverlay_render_text (GstTextOverlay * overlay, gchar * text,
   }
   y = overlay->text_height - 2;
   cairo_move_to (overlay->cr, x, y);
-  cairo_show_text (overlay->cr, string);
+  cairo_show_text (overlay->cr, (guchar *) string);
   cairo_restore (overlay->cr);
 
   if (overlay->text_outline_image)
     g_free (overlay->text_outline_image);
   overlay->text_outline_image =
       g_malloc (4 * overlay->width * overlay->text_height);
-  cairo_set_target_image (overlay->cr, overlay->text_outline_image,
+  cairo_set_target_image (overlay->cr, (gchar *) overlay->text_outline_image,
       CAIRO_FORMAT_ARGB32, overlay->width, overlay->text_height,
       overlay->width * 4);
 
@@ -283,7 +283,7 @@ gst_textoverlay_render_text (GstTextOverlay * overlay, gchar * text,
   cairo_move_to (overlay->cr, x, y);
   cairo_set_source_rgba (overlay->cr, 1, 1, 1, 1.0);
   cairo_set_line_width (overlay->cr, 1.0);
-  cairo_text_path (overlay->cr, string);
+  cairo_text_path (overlay->cr, (guchar *) string);
   cairo_stroke (overlay->cr);
   cairo_restore (overlay->cr);
 
@@ -513,7 +513,7 @@ gst_textoverlay_loop (GstElement * element)
         GST_BUFFER_SIZE (overlay->current_buffer),
         GST_BUFFER_DATA (overlay->current_buffer));
     gst_textoverlay_render_text (overlay,
-        GST_BUFFER_DATA (overlay->current_buffer),
+        (gchar *) GST_BUFFER_DATA (overlay->current_buffer),
         GST_BUFFER_SIZE (overlay->current_buffer));
     overlay->need_render = FALSE;
   }

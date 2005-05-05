@@ -251,7 +251,7 @@ gst_timeoverlay_planar411 (GstVideofilter * videofilter, void *dest, void *src)
   int b_width;
   char *string;
   int i, j;
-  unsigned char *image;
+  char *image;
   cairo_text_extents_t extents;
 
   g_return_if_fail (GST_IS_TIMEOVERLAY (videofilter));
@@ -278,11 +278,11 @@ gst_timeoverlay_planar411 (GstVideofilter * videofilter, void *dest, void *src)
   cairo_restore (timeoverlay->cr);
 
   cairo_save (timeoverlay->cr);
-  cairo_text_extents (timeoverlay->cr, string, &extents);
+  cairo_text_extents (timeoverlay->cr, (guchar *) string, &extents);
 
   cairo_set_rgb_color (timeoverlay->cr, 1, 1, 1);
   cairo_move_to (timeoverlay->cr, 0, timeoverlay->text_height - 2);
-  cairo_show_text (timeoverlay->cr, string);
+  cairo_show_text (timeoverlay->cr, (guchar *) string);
   g_free (string);
 #if 0
   cairo_text_path (timeoverlay->cr, string);

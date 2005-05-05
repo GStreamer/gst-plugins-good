@@ -192,8 +192,8 @@ gst_smokedec_chain (GstPad * pad, GstData * _data)
   SmokeCodecFlags flags;
   GstClockTime time;
 
-  gint width, height;
-  gint fps_num, fps_denom;
+  guint width, height;
+  guint fps_num, fps_denom;
 
   smokedec = GST_SMOKEDEC (GST_OBJECT_PARENT (pad));
 

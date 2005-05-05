@@ -591,7 +591,7 @@ gst_textoverlay_loop (GstElement * element)
           GST_BUFFER_DATA (overlay->current_data));
       /* somehow pango barfs over "\0" buffers... */
       pango_layout_set_markup (overlay->layout,
-          GST_BUFFER_DATA (overlay->current_data), size);
+          (gchar *) GST_BUFFER_DATA (overlay->current_data), size);
     } else {
       GST_DEBUG ("Filler - no data");
       pango_layout_set_markup (overlay->layout, "", 0);

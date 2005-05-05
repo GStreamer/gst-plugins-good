@@ -262,7 +262,7 @@ gst_flacdec_update_metadata (FlacDec * flacdec,
   value = NULL;
   GST_DEBUG ("%d tag(s) found", number_of_comments);
   for (cursor = 0; cursor < number_of_comments; cursor++) {
-    str_ptr = metadata->data.vorbis_comment.comments[cursor].entry;
+    str_ptr = (gchar *) metadata->data.vorbis_comment.comments[cursor].entry;
     str_len = metadata->data.vorbis_comment.comments[cursor].length;
     p_value = g_strstr_len (str_ptr, str_len, "=");
     if (p_value) {

@@ -287,7 +287,7 @@ speex_dec_src_event (GstPad * pad, GstEvent * event)
 
   switch (GST_EVENT_TYPE (event)) {
     case GST_EVENT_SEEK:{
-      guint64 value;
+      gint64 value;
       GstFormat my_format = GST_FORMAT_DEFAULT;
 
       /* convert to samples_out */
@@ -315,13 +315,12 @@ speex_dec_src_event (GstPad * pad, GstEvent * event)
 static void
 speex_dec_event (GstSpeexDec * dec, GstEvent * event)
 {
-  guint64 value, time, bytes;
+  gint64 value, time, bytes;
 
   GST_LOG_OBJECT (dec, "handling event");
   switch (GST_EVENT_TYPE (event)) {
     case GST_EVENT_DISCONTINUOUS:
-      if (gst_event_discont_get_value (event, GST_FORMAT_DEFAULT,
-              (gint64 *) & value)) {
+      if (gst_event_discont_get_value (event, GST_FORMAT_DEFAULT, &value)) {
         dec->samples_out = value;
         GST_DEBUG_OBJECT (dec,
             "setting samples_out to %" G_GUINT64_FORMAT " after discont",
@@ -386,8 +385,8 @@ speex_dec_chain (GstPad * pad, GstData * data)
     GstCaps *caps;
 
     /* get the header */
-    dec->header =
-        speex_packet_to_header (GST_BUFFER_DATA (buf), GST_BUFFER_SIZE (buf));
+    dec->header = speex_packet_to_header ((gchar *) GST_BUFFER_DATA (buf),
+        GST_BUFFER_SIZE (buf));
     gst_data_unref (data);
     if (!dec->header) {
       GST_ELEMENT_ERROR (GST_ELEMENT (dec), STREAM, DECODE,
@@ -444,8 +443,9 @@ speex_dec_chain (GstPad * pad, GstData * data)
     gchar *encoder = NULL;
 
     /* FIXME parse comments */
-    GstTagList *list = gst_tag_list_from_vorbiscomment_buffer (buf, "", 1,
-        &encoder);
+    GstTagList *list =
+        gst_tag_list_from_vorbiscomment_buffer (buf, (guint8 *) "",
+        1, &encoder);
 
     gst_data_unref (data);
 
@@ -479,7 +479,7 @@ speex_dec_chain (GstPad * pad, GstData * data)
     gint i;
 
     /* send data to the bitstream */
-    speex_bits_read_from (&dec->bits, GST_BUFFER_DATA (buf),
+    speex_bits_read_from (&dec->bits, (gchar *) GST_BUFFER_DATA (buf),
         GST_BUFFER_SIZE (buf));
     gst_data_unref (data);
 
