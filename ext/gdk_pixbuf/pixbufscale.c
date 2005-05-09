@@ -253,6 +253,8 @@ gst_pixbufscale_link (GstPad * pad, const GstCaps * caps)
           "height", G_TYPE_INT, pixbufscale->to_height, NULL);
     }
     ret = gst_pad_try_set_caps (otherpad, newcaps);
+    gst_caps_free (newcaps);
+
     if (GST_PAD_LINK_FAILED (ret)) {
       return GST_PAD_LINK_REFUSED;
     }
