@@ -235,6 +235,7 @@ gst_pixbufscale_link (GstPad * pad, const GstCaps * caps)
     pixbufscale->from_stride = GST_RGB24_ROWSTRIDE (width);
     pixbufscale->to_stride = GST_RGB24_ROWSTRIDE (width);
 
+    pixbufscale->passthru = TRUE;
     pixbufscale->inited = TRUE;
 
     return GST_PAD_LINK_OK;
