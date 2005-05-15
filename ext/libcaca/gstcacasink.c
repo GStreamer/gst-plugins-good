@@ -234,6 +234,7 @@ gst_cacasink_sinkconnect (GstPad * pad, const GstCaps * caps)
 {
   GstCACASink *cacasink;
   GstStructure *structure;
+  gint width, height, bpp, red_mask, green_mask, blue_mask;
 
   cacasink = GST_CACASINK (gst_pad_get_parent (pad));
 
@@ -244,30 +245,35 @@ gst_cacasink_sinkconnect (GstPad * pad, const GstCaps * caps)
      return GST_PAD_LINK_DELAYED; */
 
   structure = gst_caps_get_structure (caps, 0);
-  gst_structure_get_int (structure, "width", &(GST_VIDEOSINK_WIDTH (cacasink)));
-  gst_structure_get_int (structure, "height",
-      &(GST_VIDEOSINK_HEIGHT (cacasink)));
-  gst_structure_get_int (structure, "bpp", &cacasink->bpp);
-  gst_structure_get_int (structure, "red_mask", &cacasink->red_mask);
-  gst_structure_get_int (structure, "green_mask", &cacasink->green_mask);
-  gst_structure_get_int (structure, "blue_mask", &cacasink->blue_mask);
+  if (!gst_structure_get_int (structure, "width", &width)
+      || !gst_structure_get_int (structure, "height", &height)
+      || !gst_structure_get_int (structure, "bpp", &bpp)
+      || !gst_structure_get_int (structure, "red_mask", &red_mask)
+      || !gst_structure_get_int (structure, "green_mask", &green_mask)
+      || !gst_structure_get_int (structure, "blue_mask", &blue_mask)) {
+    return GST_PAD_LINK_REFUSED;
+  }
+
+  GST_VIDEOSINK_WIDTH (cacasink) = width;
+  GST_VIDEOSINK_HEIGHT (cacasink) = height;
+  cacasink->bpp = bpp;
 
   if (cacasink->bpp == 24) {
-    cacasink->red_mask = GUINT32_FROM_BE (cacasink->red_mask) >> 8;
-    cacasink->green_mask = GUINT32_FROM_BE (cacasink->green_mask) >> 8;
-    cacasink->blue_mask = GUINT32_FROM_BE (cacasink->blue_mask) >> 8;
+    cacasink->red_mask = GUINT32_FROM_BE (red_mask) >> 8;
+    cacasink->green_mask = GUINT32_FROM_BE (green_mask) >> 8;
+    cacasink->blue_mask = GUINT32_FROM_BE (blue_mask) >> 8;
   }
 
   else if (cacasink->bpp == 32) {
-    cacasink->red_mask = GUINT32_FROM_BE (cacasink->red_mask);
-    cacasink->green_mask = GUINT32_FROM_BE (cacasink->green_mask);
-    cacasink->blue_mask = GUINT32_FROM_BE (cacasink->blue_mask);
+    cacasink->red_mask = GUINT32_FROM_BE (red_mask);
+    cacasink->green_mask = GUINT32_FROM_BE (green_mask);
+    cacasink->blue_mask = GUINT32_FROM_BE (blue_mask);
   }
 
   else if (cacasink->bpp == 16 || cacasink->bpp == 15) {
-    cacasink->red_mask = GUINT16_FROM_BE (cacasink->red_mask);
-    cacasink->green_mask = GUINT16_FROM_BE (cacasink->green_mask);
-    cacasink->blue_mask = GUINT16_FROM_BE (cacasink->blue_mask);
+    cacasink->red_mask = GUINT16_FROM_BE (red_mask);
+    cacasink->green_mask = GUINT16_FROM_BE (green_mask);
+    cacasink->blue_mask = GUINT16_FROM_BE (blue_mask);
   }
 
   if (cacasink->bitmap) {
