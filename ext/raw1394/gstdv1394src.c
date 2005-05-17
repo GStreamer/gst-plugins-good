@@ -412,20 +412,23 @@ gst_dv1394src_iso_receive (raw1394handle_t handle, int channel, size_t len,
               dv1394src->consecutive) < dv1394src->consecutive) {
         GstFormat format;
         GstBuffer *buf;
+        gint64 offset, timestamp, frame_duration;
 
         buf = gst_buffer_new_and_alloc (dv1394src->frame_size);
         /* fill in default offset */
         format = GST_FORMAT_DEFAULT;
         gst_dv1394src_query (dv1394src->srcpad, GST_QUERY_POSITION, &format,
-            &GST_BUFFER_OFFSET (buf));
+            &offset);
         /* fill in timestamp */
         format = GST_FORMAT_TIME;
         gst_dv1394src_query (dv1394src->srcpad, GST_QUERY_POSITION, &format,
-            &GST_BUFFER_TIMESTAMP (buf));
+            &timestamp);
         /* fill in duration by converting one frame to time */
         gst_dv1394src_convert (dv1394src->srcpad, GST_FORMAT_DEFAULT, 1,
-            &format, &GST_BUFFER_DURATION (buf));
-
+            &format, &frame_duration);
+        GST_BUFFER_OFFSET (buf) = offset;
+        GST_BUFFER_TIMESTAMP (buf) = timestamp;
+        GST_BUFFER_DURATION (buf) = frame_duration;
         dv1394src->frame = buf;
       }
       dv1394src->frame_sequence++;
