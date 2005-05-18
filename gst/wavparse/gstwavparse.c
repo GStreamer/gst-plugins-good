@@ -554,20 +554,21 @@ gst_wavparse_fmt (GstWavParse * wav)
     return FALSE;
   }
 
-  /* Note: gst_riff_create_audio_caps might nedd to fix values in
-   * the header header depending on the format, so call it first */
-  caps = gst_riff_create_audio_caps (header->format, NULL, header, NULL);
-  if (!caps)
-    return FALSE;
-
   wav->format = header->format;
   wav->rate = header->rate;
   wav->channels = header->channels;
+  if (wav->channels == 0) {
+    GST_ELEMENT_ERROR (wav, STREAM, FAILED, (NULL),
+        ("Stream claims to contain zero channels - invalid data"));
+    g_free (header);
+    return FALSE;
+  }
   wav->blockalign = header->blockalign;
   wav->width = (header->blockalign * 8) / header->channels;
   wav->depth = header->size;
   wav->bps = header->av_bps;
 
+  caps = gst_riff_create_audio_caps (header->format, NULL, header, NULL);
   g_free (header);
 
   if (caps) {
@@ -590,7 +591,9 @@ gst_wavparse_fmt (GstWavParse * wav)
     gst_element_no_more_pads (GST_ELEMENT (wav));
     GST_DEBUG ("frequency %d, channels %d", wav->rate, wav->channels);
   } else {
-    GST_ELEMENT_ERROR (wav, STREAM, TYPE_NOT_FOUND, (NULL), (NULL));
+    GST_ELEMENT_ERROR (wav, STREAM, TYPE_NOT_FOUND, (NULL),
+        ("No caps found for format 0x%x, %d channels, %d Hz",
+            wav->format, wav->channels, wav->rate));
     return FALSE;
   }
 
