@@ -1,0 +1,3 @@
+a test pipeline:
+
+./gst-launch -v filesrc location=~/fluendo_small.mng ! mngdec ! alphacolor ! videomixer name=mix ! ffmpegcolorspace ! xvimagesink   videotestsrc ! ffmpegcolorspace ! mix.
