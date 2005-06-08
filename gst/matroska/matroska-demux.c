@@ -2611,6 +2611,18 @@ gst_matroska_demux_video_caps (GstMatroskaTrackVideoContext * videocontext,
     caps = gst_caps_new_simple ("video/x-jpeg", NULL);
     if (codec_name)
       *codec_name = g_strdup ("Motion-JPEG");
+  } else if (!strcmp (codec_id, GST_MATROSKA_CODEC_ID_VIDEO_MPEG4_AVC)) {
+    caps = gst_caps_new_simple ("video/x-h264", NULL);
+    if (data) {
+      GstBuffer *priv = gst_buffer_new_and_alloc (size);
+
+      memcpy (GST_BUFFER_DATA (priv), data, size);
+      gst_caps_set_simple (caps, "codec_data", GST_TYPE_BUFFER, priv, NULL);
+      gst_buffer_unref (priv);
+
+    }
+    if (codec_name)
+      *codec_name = g_strdup ("H264");
   } else {
     GST_WARNING ("Unknown codec '%s', cannot build Caps", codec_id);
     return NULL;
@@ -2963,6 +2975,7 @@ gst_matroska_demux_plugin_init (GstPlugin * plugin)
     GST_MATROSKA_CODEC_ID_VIDEO_UNCOMPRESSED,
     GST_MATROSKA_CODEC_ID_VIDEO_MPEG4_SP,
     GST_MATROSKA_CODEC_ID_VIDEO_MPEG4_ASP,
+    GST_MATROSKA_CODEC_ID_VIDEO_MPEG4_AVC,
     GST_MATROSKA_CODEC_ID_VIDEO_MSMPEG4V3,
     GST_MATROSKA_CODEC_ID_VIDEO_MPEG1,
     GST_MATROSKA_CODEC_ID_VIDEO_MPEG2,
