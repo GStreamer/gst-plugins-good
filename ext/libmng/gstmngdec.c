@@ -96,7 +96,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("video/x-mng, "
         "width = (int) [ 16, 4096 ], "
-        "height = (int) [ 16, 4096 ], " "framerate = (double) [ 0.0, MAX ]")
+        "height = (int) [ 16, 4096 ], " "framerate = (double) [ 1.0, MAX ]")
     );
 
 static void
