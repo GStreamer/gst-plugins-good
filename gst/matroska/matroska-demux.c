@@ -2083,6 +2083,44 @@ gst_matroska_demux_parse_blockgroup (GstMatroskaDemux * demux,
       demux->src[stream]->pos = demux->pos;
       gst_matroska_demux_sync_streams (demux);
 
+      if (!strcmp (demux->src[stream]->codec_id,
+              GST_MATROSKA_CODEC_ID_AUDIO_WAVPACK4)) {
+        GstBuffer *newbuf;
+        guint8 *data;
+
+        /* we need to reconstruct the header of the wavpack block */
+        Wavpack4Header wvh;
+
+        wvh.ck_id[0] = 'w';
+        wvh.ck_id[1] = 'v';
+        wvh.ck_id[2] = 'p';
+        wvh.ck_id[3] = 'k';
+        /* -20 because ck_size is the size of the wavpack block -8
+         * and lace_size is the size of the wavpack block + 12
+         * (the three guint32 of the header that already are in the buffer) */
+        wvh.ck_size = lace_size[n] + sizeof (Wavpack4Header) - 20;
+        wvh.version = GST_READ_UINT16_LE (demux->src[stream]->codec_priv);
+        wvh.track_no = 0;
+        wvh.index_no = 0;
+        wvh.total_samples = -1;
+        wvh.block_index = 0;
+        /* block_samples, flags and crc are already in the buffer */
+        newbuf =
+            gst_buffer_new_and_alloc (lace_size[n] + sizeof (Wavpack4Header) -
+            12);
+        data = GST_BUFFER_DATA (newbuf);
+        GST_WRITE_UINT32_LE (data, wvh.ck_id);
+        GST_WRITE_UINT32_LE (data + 4, wvh.ck_size);
+        GST_WRITE_UINT16_LE (data + 8, wvh.version);
+        GST_WRITE_UINT8 (data + 10, wvh.track_no);
+        GST_WRITE_UINT8 (data + 11, wvh.index_no);
+        GST_WRITE_UINT32_LE (data + 12, wvh.total_samples);
+        GST_WRITE_UINT32_LE (data + 16, wvh.block_index);
+        g_memmove (data + 20, GST_BUFFER_DATA (sub), lace_size[n]);
+        GST_BUFFER_TIMESTAMP (newbuf) = GST_BUFFER_TIMESTAMP (sub);
+        sub = newbuf;
+      }
+
       /* FIXME: do all laces have the same lenght? */
       if (duration) {
         GST_BUFFER_DURATION (sub) = duration / laces;
@@ -2892,6 +2930,17 @@ gst_matroska_demux_audio_caps (GstMatroskaTrackAudioContext * audiocontext,
     }
     if (codec_name)
       *codec_name = g_strdup ("TTA audio");
+  } else if (!strcmp (codec_id, GST_MATROSKA_CODEC_ID_AUDIO_WAVPACK4)) {
+    if (audiocontext != NULL) {
+      caps = gst_caps_new_simple ("audio/x-wavpack",
+          "width", G_TYPE_INT, audiocontext->bitdepth,
+          "framed", G_TYPE_BOOLEAN, TRUE, NULL);
+    } else {
+      caps = gst_caps_from_string ("audio/x-wavpack, "
+          "width = (int) { 8, 16, 24 }, " "framed = (boolean) true");
+    }
+    if (codec_name)
+      *codec_name = g_strdup ("Wavpack audio");
   } else {
     GST_WARNING ("Unknown codec '%s', cannot build Caps", codec_id);
     return NULL;
@@ -2995,6 +3044,7 @@ gst_matroska_demux_plugin_init (GstPlugin * plugin)
         GST_MATROSKA_CODEC_ID_AUDIO_VORBIS,
         GST_MATROSKA_CODEC_ID_AUDIO_TTA,
         GST_MATROSKA_CODEC_ID_AUDIO_MPEG2, GST_MATROSKA_CODEC_ID_AUDIO_MPEG4,
+        GST_MATROSKA_CODEC_ID_AUDIO_WAVPACK4,
         /* TODO: AC3-9/10, Real, Musepack, Quicktime */
         /* FILLME */
   NULL,}
