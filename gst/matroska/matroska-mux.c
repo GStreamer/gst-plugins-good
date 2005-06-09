@@ -1140,12 +1140,14 @@ gst_matroska_mux_loop (GstElement * element)
   /* start with a header */
   if (mux->state == GST_MATROSKA_MUX_STATE_START) {
     if (mux->num_streams == 0) {
+      GST_ELEMENT_ERROR (mux, STREAM, MUX, (NULL),
+          ("No input streams configured"));
       return;
     }
     for (i = 0; i < mux->num_streams; i++) {
       if (!gst_pad_is_negotiated (mux->sink[i].track->pad)) {
+        GST_ELEMENT_ERROR (mux, CORE, NEGOTIATION, (NULL), (NULL));
         return;
-      } else {
       }
     }
     mux->state = GST_MATROSKA_MUX_STATE_HEADER;
