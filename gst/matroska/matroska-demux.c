@@ -2109,7 +2109,10 @@ gst_matroska_demux_parse_blockgroup (GstMatroskaDemux * demux,
             gst_buffer_new_and_alloc (lace_size[n] + sizeof (Wavpack4Header) -
             12);
         data = GST_BUFFER_DATA (newbuf);
-        GST_WRITE_UINT32_LE (data, wvh.ck_id);
+        data[0] = 'w';
+        data[1] = 'v';
+        data[2] = 'p';
+        data[3] = 'k';
         GST_WRITE_UINT32_LE (data + 4, wvh.ck_size);
         GST_WRITE_UINT16_LE (data + 8, wvh.version);
         GST_WRITE_UINT8 (data + 10, wvh.track_no);
