@@ -214,7 +214,7 @@ gst_textoverlay_render_text (GstTextOverlay * overlay, gchar * text,
   cairo_text_extents_t extents;
   cairo_surface_t *surface;
   cairo_t *cr;
-  char *string;
+  gchar *string;
   double x, y;
 
   string = g_strndup (text, textlen);
@@ -296,7 +296,7 @@ gst_textoverlay_render_text (GstTextOverlay * overlay, gchar * text,
   cairo_move_to (cr, x, y);
   cairo_set_source_rgba (cr, 1, 1, 1, 1.0);
   cairo_set_line_width (cr, 1.0);
-  cairo_text_path (cr, (guchar *) string);
+  cairo_text_path (cr, string);
   cairo_stroke (cr);
   cairo_restore (cr);
 
