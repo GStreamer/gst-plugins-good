@@ -2081,8 +2081,9 @@ gst_avi_demux_process_next_entry (GstAviDemux * avi)
         GST_BUFFER_TIMESTAMP (buf) = entry->ts;
         GST_BUFFER_DURATION (buf) = entry->dur;
         GST_DEBUG_OBJECT (avi, "Processing buffer of size %d and time %"
-            GST_TIME_FORMAT " on pad %s",
+            GST_TIME_FORMAT " and duration %" GST_TIME_FORMAT " on pad %s",
             GST_BUFFER_SIZE (buf), GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (buf)),
+            GST_TIME_ARGS (GST_BUFFER_DURATION (buf)),
             gst_pad_get_name (stream->pad));
         gst_pad_push (stream->pad, GST_DATA (buf));
         processed = TRUE;
