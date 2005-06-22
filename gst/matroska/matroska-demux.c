@@ -375,6 +375,13 @@ gst_matroska_demux_add_stream (GstMatroskaDemux * demux)
           case GST_MATROSKA_TRACK_TYPE_VIDEO:
             context = (GstMatroskaTrackContext *)
                 g_renew (GstMatroskaTrackVideoContext, context, 1);
+            ((GstMatroskaTrackVideoContext *) context)->display_width = 0;
+            ((GstMatroskaTrackVideoContext *) context)->display_height = 0;
+            ((GstMatroskaTrackVideoContext *) context)->pixel_width = 0;
+            ((GstMatroskaTrackVideoContext *) context)->pixel_height = 0;
+            ((GstMatroskaTrackVideoContext *) context)->eye_mode = 0;
+            ((GstMatroskaTrackVideoContext *) context)->asr_mode = 0;
+            ((GstMatroskaTrackVideoContext *) context)->fourcc = 0;
             break;
           case GST_MATROSKA_TRACK_TYPE_AUDIO:
             context = (GstMatroskaTrackContext *)
