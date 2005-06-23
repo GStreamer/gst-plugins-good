@@ -353,6 +353,7 @@ Samples :
 
     if (!gst_pad_set_explicit_caps (auparse->srcpad, tempcaps)) {
       GST_ELEMENT_ERROR (auparse, CORE, NEGOTIATION, (NULL), (NULL));
+      gst_caps_free (tempcaps);
       gst_buffer_unref (buf);
       gst_object_unref (GST_OBJECT (auparse->srcpad));
       auparse->srcpad = NULL;
@@ -368,6 +369,7 @@ Samples :
     GST_BUFFER_SIZE (newbuf) = size - (auparse->offset);
 
     gst_buffer_unref (buf);
+    gst_caps_free (tempcaps);
 
     gst_pad_push (auparse->srcpad, GST_DATA (newbuf));
     return;
