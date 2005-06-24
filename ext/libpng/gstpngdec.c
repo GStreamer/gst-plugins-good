@@ -91,7 +91,7 @@ static GstStaticPadTemplate gst_pngdec_src_pad_template =
     GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_BGRA ";" GST_VIDEO_CAPS_BGR)
+    GST_STATIC_CAPS (GST_VIDEO_CAPS_RGBA ";" GST_VIDEO_CAPS_RGB)
     );
 
 static GstStaticPadTemplate gst_pngdec_sink_pad_template =
