@@ -567,6 +567,12 @@ gst_wavparse_fmt (GstWavParse * wav)
   wav->width = (header->blockalign * 8) / header->channels;
   wav->depth = header->size;
   wav->bps = header->av_bps;
+  if (wav->bps <= 0) {
+    GST_ELEMENT_ERROR (wav, STREAM, FAILED, (NULL),
+        ("Stream claims to bitrate of <= zero - invalid data"));
+    g_free (header);
+    return FALSE;
+  }
 
   caps = gst_riff_create_audio_caps (header->format, NULL, header, NULL);
   g_free (header);
