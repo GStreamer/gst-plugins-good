@@ -974,7 +974,6 @@ gst_matroska_mux_prepare_data (GstMatroskaMux * mux)
 
   for (i = 0; i < mux->num_streams; i++) {
     while (!mux->sink[i].eos && !mux->sink[i].buffer &&
-        mux->sink[i].track->num > 0 &&
         GST_PAD_IS_USABLE (mux->sink[i].track->pad)) {
       GstData *data;
 
