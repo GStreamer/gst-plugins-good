@@ -4,14 +4,14 @@
 
 plugin_LTLIBRARIES = libgsttimeoverlay.la libgsttextoverlay.la
 
-noinst_HEADERS = gsttimeoverlay.h gsttextoverlay.h
+noinst_HEADERS = gsttimeoverlay.h gsttextoverlay.h gsttextrender.h
 
 libgsttimeoverlay_la_SOURCES = gsttimeoverlay.c
 libgsttimeoverlay_la_CFLAGS = $(GST_CFLAGS) $(PANGO_CFLAGS) -I$(top_srcdir)/gst/videofilter
 libgsttimeoverlay_la_LIBADD =
 libgsttimeoverlay_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) $(PANGO_LIBS) -lm
 
-libgsttextoverlay_la_SOURCES = gsttextoverlay.c
+libgsttextoverlay_la_SOURCES = gsttextoverlay.c gsttextrender.c
 libgsttextoverlay_la_CFLAGS = $(GST_CFLAGS) $(PANGO_CFLAGS)
 libgsttextoverlay_la_LIBADD =
 libgsttextoverlay_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) $(PANGO_LIBS)

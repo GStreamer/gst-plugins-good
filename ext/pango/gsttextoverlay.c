@@ -22,9 +22,10 @@
 #include <config.h>
 #endif
 #include <gst/gst.h>
+#include "gsttextrender.h"
 #include "gsttextoverlay.h"
 
-GST_DEBUG_CATEGORY_STATIC (pango_debug);
+GST_DEBUG_CATEGORY (pango_debug);
 #define GST_CAT_DEFAULT pango_debug
 
 static GstElementDetails textoverlay_details = {
@@ -810,7 +811,9 @@ static gboolean
 plugin_init (GstPlugin * plugin)
 {
   if (!gst_element_register (plugin, "textoverlay", GST_RANK_NONE,
-          GST_TYPE_TEXTOVERLAY))
+          GST_TYPE_TEXTOVERLAY) ||
+      !gst_element_register (plugin, "textrender", GST_RANK_NONE,
+          GST_TYPE_TEXT_RENDER))
     return FALSE;
 
   /*texttestsrc_plugin_init(module, plugin); */

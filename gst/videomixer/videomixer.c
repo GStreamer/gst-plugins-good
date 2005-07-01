@@ -87,7 +87,7 @@ struct _GstVideoMixerPad
   GstBuffer *buffer;            /* the queued buffer for this pad */
   gboolean eos;
 
-  gint64 queued;
+  guint64 queued;
 
   guint in_width, in_height;
   gdouble in_framerate;
@@ -895,8 +895,9 @@ gst_videomixer_fill_queues (GstVideoMixer * mix)
       continue;
     }
 
-    GST_DEBUG ("pad %s: buffer %p, queued %lld  ",
-        gst_pad_get_name (GST_PAD (pad)), pad->buffer, pad->queued);
+    GST_DEBUG ("pad %s: buffer %p, queued %" GST_TIME_FORMAT,
+        gst_pad_get_name (GST_PAD (pad)), pad->buffer,
+        GST_TIME_ARGS (pad->queued));
 
     /* this pad is in need of a new buffer */
     if (pad->buffer == NULL) {
@@ -904,7 +905,7 @@ gst_videomixer_fill_queues (GstVideoMixer * mix)
       GstBuffer *buffer;
 
       /* as long as not enough buffers have been queued */
-      while (pad->queued <= 0 && !pad->eos) {
+      while (pad->queued == 0 && !pad->eos) {
         data = gst_pad_pull (GST_PAD (pad));
         if (GST_IS_EVENT (data)) {
           GstEvent *event = GST_EVENT (data);
@@ -926,16 +927,19 @@ gst_videomixer_fill_queues (GstVideoMixer * mix)
           buffer = GST_BUFFER (data);
           duration = GST_BUFFER_DURATION (buffer);
           /* no duration on the buffer, use the framerate */
-          if (duration == -1) {
+          if (!GST_CLOCK_TIME_IS_VALID (duration)) {
             if (pad->in_framerate == 0.0) {
-              duration = G_MAXINT64;
+              duration = GST_CLOCK_TIME_NONE;
             } else {
               duration = GST_SECOND / pad->in_framerate;
             }
           }
-          pad->queued += duration;
+          if (GST_CLOCK_TIME_IS_VALID (duration))
+            pad->queued += duration;
+          else if (!pad->queued)
+            pad->queued = GST_CLOCK_TIME_NONE;
           /* this buffer will need to be mixed */
-          if (pad->queued > 0) {
+          if (pad->queued != 0) {
             pad->buffer = buffer;
           } else {
             /* skip buffer, it's too old */
@@ -946,7 +950,7 @@ gst_videomixer_fill_queues (GstVideoMixer * mix)
             gst_pad_get_name (GST_PAD (pad)), pad->buffer, pad->queued);
       }
     }
-    if (pad->buffer != NULL) {
+    if (pad->buffer != NULL && GST_CLOCK_TIME_IS_VALID (pad->queued)) {
       /* got a buffer somewhere so were not eos */
       eos = FALSE;
     }
@@ -1004,11 +1008,11 @@ gst_videomixer_update_queues (GstVideoMixer * mix)
 
     walk = g_slist_next (walk);
 
-    if (pad->buffer != NULL) {
+    if (pad->buffer != NULL && GST_CLOCK_TIME_IS_VALID (pad->queued)) {
       pad->queued -= interval;
       GST_DEBUG ("queued now %s %lld", gst_pad_get_name (GST_PAD (pad)),
           pad->queued);
-      if (pad->queued <= 0) {
+      if (pad->queued == 0) {
         gst_buffer_unref (pad->buffer);
         pad->buffer = NULL;
       }
