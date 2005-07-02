@@ -217,8 +217,8 @@ gst_ebml_write_element_size (GstBuffer * buf, guint64 size)
   guint8 *data = GST_BUFFER_DATA (buf) + GST_BUFFER_SIZE (buf);
   guint bytes = 1, mask = 0x80;
 
-  /* how many bytes? */
-  while ((size >> ((bytes - 1) * 8)) >= mask && bytes <= 8) {
+  /* how many bytes? - use mask-1 because an all-1 bitset is not allowed */
+  while ((size >> ((bytes - 1) * 8)) >= (mask - 1) && bytes <= 8) {
     mask >>= 1;
     bytes++;
   }
