@@ -321,7 +321,7 @@ gst_matroska_mux_reset (GstElement * element)
 
   /* reset uid array */
   if (used_uids) {
-    g_free (used_uids);
+    g_array_free (used_uids, TRUE);
   }
   /* arbitrary size, 10 should be enough in most cases */
   used_uids = g_array_sized_new (FALSE, FALSE, sizeof (guint32), 10);
