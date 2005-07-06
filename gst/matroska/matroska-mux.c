@@ -1132,7 +1132,18 @@ gst_matroska_mux_loop (GstElement * element)
   guint i;
 
   if (gst_matroska_mux_prepare_data (mux) == -1) {
-    GST_ELEMENT_ERROR (element, STREAM, MUX, (NULL), ("No data"));
+    gboolean eos = TRUE;
+
+    for (i = 0; i < mux->num_streams; i++) {
+      eos = eos & mux->sink[i].eos;
+    }
+    if (eos) {
+      // all streams are EOS, finish writing
+      gst_matroska_mux_write_data (mux);
+    } else {
+      // no data available and no EOS
+      GST_ELEMENT_ERROR (element, STREAM, MUX, (NULL), ("No data"));
+    }
     return;
   }
 
