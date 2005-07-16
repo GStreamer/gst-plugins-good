@@ -298,7 +298,7 @@ gst_matroska_demux_add_stream (GstMatroskaDemux * demux)
   gboolean res = TRUE;
   guint32 id;
   GstTagList *list = NULL;
-  gchar *codec;
+  gchar *codec = NULL;
 
   if (demux->num_streams >= GST_MATROSKA_DEMUX_MAX_STREAMS) {
     GST_WARNING ("Maximum number of streams (%d) exceeded, skipping",
