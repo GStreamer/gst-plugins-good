@@ -211,64 +211,24 @@ gst_text_render_fixate (GstPad * pad, const GstCaps * caps)
 }
 
 static void
-gst_text_overlay_blit_yuv420 (GstTextRender * overlay, FT_Bitmap * bitmap,
-    guchar * pixbuf, int x0, int y0)
+gst_text_renderer_bitmap_to_ayuv (GstTextRender * overlay, FT_Bitmap * bitmap,
+    guchar * pixbuf)
 {
   int y;                        /* text bitmap coordinates */
-  int x1, y1;                   /* video buffer coordinates */
   int rowinc, bit_rowinc;
   guchar *p, *bitp;
-  int video_width = overlay->width, video_height = overlay->height;
-  int bitmap_x0 = 0;            //x0 < 1 ? -(x0 - 1) : 1;       /* 1 pixel border */
-  int bitmap_y0 = y0 < 1 ? -(y0 - 1) : 1;       /* 1 pixel border */
-  int bitmap_width = bitmap->width - bitmap_x0;
-  int bitmap_height = bitmap->rows - bitmap_y0;
-  int skip_y, skip_x;
   guchar v;
 
-  if (x0 + bitmap_x0 + bitmap_width > video_width - 1)  /* 1 pixel border */
-    bitmap_width -= x0 + bitmap_x0 + bitmap_width - video_width + 1;
-  if (y0 + bitmap_y0 + bitmap_height > video_height - 1)        /* 1 pixel border */
-    bitmap_height -= y0 + bitmap_y0 + bitmap_height - video_height + 1;
+  rowinc = overlay->width - bitmap->width;
+  bit_rowinc = bitmap->pitch - bitmap->width;
 
-  rowinc = video_width - bitmap_width;
-  bit_rowinc = bitmap->pitch - bitmap_width;
+  bitp = bitmap->buffer;
+  p = pixbuf;
 
-  y1 = y0 + bitmap_y0;
-  x1 = x0 + bitmap_x0;
-  p = pixbuf + 1 + (video_width * y1 + x1) * 4;
-  bitp = bitmap->buffer + bitmap->pitch * bitmap_y0 + bitmap_x0;
-  for (y = bitmap_y0; y < bitmap_y0 + bitmap_height; y++) {
+  for (y = 0; y < bitmap->rows; y++) {
     int n;
 
-    for (n = bitmap_width; n > 0; --n) {
-      v = *bitp;
-      if (v) {
-        p[-4] = CLAMP (p[-4] - v, 0, 255);
-        p[4] = CLAMP (p[4] - v, 0, 255);
-        p[-4 * video_width] = CLAMP (p[-4 * video_width] - v, 0, 255);
-        p[4 * video_width] = CLAMP (p[4 * video_width] - v, 0, 255);
-      }
-      p += 4;
-      bitp++;
-    }
-    p += rowinc * 4;
-    bitp += bit_rowinc;
-  }
-
-  y1 = y0 + bitmap_y0;
-  x1 = x0 + bitmap_x0;
-  bitp = bitmap->buffer + bitmap->pitch * bitmap_y0 + bitmap_x0;
-  p = pixbuf + (video_width * y1 + x1) * 4;
-  skip_y = 0;
-  skip_x = 0;
-
-  for (y = bitmap_y0; y < bitmap_y0 + bitmap_height; y++) {
-    int n;
-
-    x1 = x0 + bitmap_x0;
-    skip_x = 0;
-    for (n = bitmap_width; n > 0; --n) {
+    for (n = bitmap->width; n > 0; --n) {
       v = *bitp;
       if (v) {
         p[0] = v;
@@ -278,7 +238,6 @@ gst_text_overlay_blit_yuv420 (GstTextRender * overlay, FT_Bitmap * bitmap,
       p += 4;
       bitp++;
     }
-    /*if (!skip_x && !skip_y) u_p--; */
     p += rowinc * 4;
     bitp += bit_rowinc;
   }
@@ -323,7 +282,7 @@ gst_text_render_chain (GstPad * pad, GstData * _data)
     data[n * 4 + 2] = data[n * 4 + 3] = 128;
   }
   if (overlay->bitmap.buffer) {
-    gst_text_overlay_blit_yuv420 (overlay, &overlay->bitmap, data, 0, 0);
+    gst_text_renderer_bitmap_to_ayuv (overlay, &overlay->bitmap, data);
   }
   gst_data_unref (_data);
 
