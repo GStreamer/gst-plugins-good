@@ -82,7 +82,6 @@ static GstStaticPadTemplate videosink_templ =
 
 /* FIXME:
  * * audio/x-raw-float: endianness needs defining.
- * * audio/x-vorbis: private data setup needs work.
  */
 static GstStaticPadTemplate audiosink_templ =
     GST_STATIC_PAD_TEMPLATE ("audio_%d",
@@ -96,6 +95,8 @@ static GstStaticPadTemplate audiosink_templ =
         "mpegversion = (int) { 2, 4 }, "
         COMMON_AUDIO_CAPS "; "
         "audio/x-ac3, "
+        COMMON_AUDIO_CAPS "; "
+        "audio/x-vorbis, "
         COMMON_AUDIO_CAPS "; "
         "audio/x-raw-int, "
         "width = (int) { 8, 16, 24 }, "
@@ -575,7 +576,77 @@ gst_matroska_mux_audio_pad_link (GstPad * pad, const GstCaps * caps)
   } else if (!strcmp (mimetype, "audio/x-raw-float")) {
     /* FIXME: endianness is undefined */
   } else if (!strcmp (mimetype, "audio/x-vorbis")) {
-    /* FIXME: private data setup needs work */
+    const GValue *streamheader;
+    guint8 *priv_data = NULL;
+    guint priv_data_size = 0;
+
+    context->codec_id = g_strdup (GST_MATROSKA_CODEC_ID_AUDIO_VORBIS);
+
+    if (context->codec_priv != NULL) {
+      g_free (context->codec_priv);
+      context->codec_priv = NULL;
+      context->codec_priv_size = 0;
+    }
+    streamheader = gst_structure_get_value (structure, "streamheader");
+
+    if (streamheader != NULL) {
+      if (G_VALUE_TYPE (streamheader) == GST_TYPE_FIXED_LIST) {
+        GArray *bufarr = g_value_peek_pointer (streamheader);
+        gint i;
+        gint offset;
+
+        if (bufarr->len == 3) {
+          GstBuffer *buf[3];
+
+          for (i = 0; i < bufarr->len; i++) {
+            GValue *bufval = &g_array_index (bufarr, GValue, i);
+
+            if (G_VALUE_TYPE (bufval) == GST_TYPE_BUFFER) {
+              buf[i] = g_value_peek_pointer (bufval);
+            }
+          }
+
+          priv_data_size = 1;
+          priv_data_size += GST_BUFFER_SIZE (buf[0]) / 0xff + 1;
+          priv_data_size += GST_BUFFER_SIZE (buf[1]) / 0xff + 1;
+
+          for (i = 0; i < 3; ++i) {
+            priv_data_size += GST_BUFFER_SIZE (buf[i]);
+          }
+
+          priv_data = g_malloc0 (priv_data_size);
+
+          priv_data[0] = 2;
+          offset = 1;
+
+          for (i = 0; i < GST_BUFFER_SIZE (buf[0]) / 0xff; ++i) {
+            priv_data[offset++] = 0xff;
+          }
+          priv_data[offset++] = GST_BUFFER_SIZE (buf[0]) % 0xff;
+
+          for (i = 0; i < GST_BUFFER_SIZE (buf[1]) / 0xff; ++i) {
+            priv_data[offset++] = 0xff;
+          }
+          priv_data[offset++] = GST_BUFFER_SIZE (buf[1]) % 0xff;
+
+          for (i = 0; i < 3; ++i) {
+            memcpy (priv_data + offset, GST_BUFFER_DATA (buf[i]),
+                GST_BUFFER_SIZE (buf[i]));
+            offset += GST_BUFFER_SIZE (buf[i]);
+          }
+        }
+      }
+    }
+
+    if (priv_data == NULL) {
+      /* FIXME:  */
+    }
+
+    context->codec_priv_size = priv_data_size;
+    context->codec_priv = (gpointer) priv_data;
+
+    return GST_PAD_LINK_OK;
+
   } else if (!strcmp (mimetype, "audio/x-ac3")) {
     context->codec_id = g_strdup (GST_MATROSKA_CODEC_ID_AUDIO_AC3);
 
