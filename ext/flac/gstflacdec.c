@@ -455,6 +455,7 @@ gst_flacdec_write (const FLAC__SeekableStreamDecoder * decoder,
   FlacDec *flacdec;
   GstBuffer *outbuf;
   guint depth = frame->header.bits_per_sample;
+  guint width = (depth == 24) ? 32 : depth;
   guint channels = frame->header.channels;
   guint samples = frame->header.blocksize;
   guint j, i;
@@ -494,11 +495,12 @@ gst_flacdec_write (const FLAC__SeekableStreamDecoder * decoder,
         gst_caps_new_simple ("audio/x-raw-int",
             "endianness", G_TYPE_INT, G_BYTE_ORDER,
             "signed", G_TYPE_BOOLEAN, TRUE,
-            "width", G_TYPE_INT, depth,
+            "width", G_TYPE_INT, width,
             "depth", G_TYPE_INT, depth,
             "rate", G_TYPE_INT, frame->header.sample_rate,
             "channels", G_TYPE_INT, channels, NULL));
 
+    flacdec->width = width;
     flacdec->depth = depth;
     flacdec->channels = channels;
     flacdec->frequency = frame->header.sample_rate;
@@ -506,7 +508,7 @@ gst_flacdec_write (const FLAC__SeekableStreamDecoder * decoder,
 
   if (GST_PAD_IS_USABLE (flacdec->srcpad)) {
     outbuf = gst_buffer_new ();
-    GST_BUFFER_SIZE (outbuf) = samples * channels * ((depth + 7) >> 3);
+    GST_BUFFER_SIZE (outbuf) = samples * channels * ((width + 7) >> 3);
     GST_BUFFER_DATA (outbuf) = g_malloc (GST_BUFFER_SIZE (outbuf));
     GST_BUFFER_TIMESTAMP (outbuf) =
         flacdec->total_samples * GST_SECOND / frame->header.sample_rate;
@@ -527,6 +529,14 @@ gst_flacdec_write (const FLAC__SeekableStreamDecoder * decoder,
       for (i = 0; i < samples; i++) {
         for (j = 0; j < channels; j++) {
           *outbuffer++ = (guint16) buffer[j][i];
+        }
+      }
+    } else if (depth == 24 || depth == 32) {
+      guint32 *outbuffer = (guint32 *) GST_BUFFER_DATA (outbuf);
+
+      for (i = 0; i < samples; i++) {
+        for (j = 0; j < channels; j++) {
+          *outbuffer++ = (guint32) buffer[j][i];
         }
       }
     } else {
@@ -618,7 +628,7 @@ gst_flacdec_convert_src (GstPad * pad, GstFormat src_format, gint64 src_value,
   guint scale = 1;
   gint bytes_per_sample;
 
-  bytes_per_sample = flacdec->channels * ((flacdec->depth + 7) >> 3);
+  bytes_per_sample = flacdec->channels * ((flacdec->width + 7) >> 3);
 
   switch (src_format) {
     case GST_FORMAT_BYTES:
