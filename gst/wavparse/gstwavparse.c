@@ -69,8 +69,8 @@ static GstStaticPadTemplate src_template_factory =
     GST_STATIC_CAPS ("audio/x-raw-int, "
         "endianness = (int) little_endian, "
         "signed = (boolean) { true, false }, "
-        "width = (int) { 8, 16 }, "
-        "depth = (int) { 8, 16 }, "
+        "width = (int) { 8, 16, 24, 32 }, "
+        "depth = (int) { 8, 16, 24, 32 }, "
         "rate = (int) [ 8000, 48000 ], "
         "channels = (int) [ 1, 2 ]; "
         "audio/mpeg, "
@@ -775,6 +775,8 @@ gst_wavparse_loop (GstElement * element)
       GstBuffer *buf = NULL;
 
       desired = MIN (wav->dataleft, MAX_BUFFER_SIZE);
+      if (desired >= wav->blockalign)
+        desired -= (desired % wav->blockalign);
       if (!(buf = gst_riff_read_element_data (riff, desired, &got_bytes))) {
         GST_WARNING_OBJECT (wav, "trying to read %d bytes failed", desired);
         return;
