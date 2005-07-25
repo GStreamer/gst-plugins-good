@@ -1,4 +1,3 @@
-
 plugin_LTLIBRARIES = libgstvideofilter.la libgstvideoflip.la \
 	libgstvideobalance.la libgstgamma.la
 noinst_LTLIBRARIES = libgstvideoexample.la

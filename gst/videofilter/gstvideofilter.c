@@ -26,7 +26,8 @@
 /*#define DEBUG_ENABLED */
 #include "gstvideofilter.h"
 
-
+GST_DEBUG_CATEGORY_STATIC (gst_videofilter_debug);
+#define GST_CAT_DEFAULT gst_videofilter_debug
 
 /* GstVideofilter signals and args */
 enum
@@ -53,7 +54,6 @@ static void gst_videofilter_get_property (GObject * object, guint prop_id,
 
 static void gst_videofilter_chain (GstPad * pad, GstData * _data);
 GstCaps *gst_videofilter_class_get_capslist (GstVideofilterClass * klass);
-static void gst_videofilter_setup (GstVideofilter * videofilter);
 
 static GstElementClass *parent_class = NULL;
 
@@ -173,14 +173,11 @@ gst_videofilter_getcaps (GstPad * pad)
   GstVideofilter *videofilter;
   GstVideofilterClass *klass;
 
-  //GstCaps *caps;
   GstCaps *othercaps;
   GstPad *otherpad;
 
-  //int i;
-
-  GST_DEBUG ("gst_videofilter_getcaps");
   videofilter = GST_VIDEOFILTER (gst_pad_get_parent (pad));
+  GST_DEBUG_OBJECT (videofilter, "gst_videofilter_getcaps");
 
   klass = GST_VIDEOFILTER_CLASS (G_OBJECT_GET_CLASS (videofilter));
 
@@ -231,8 +228,8 @@ gst_videofilter_link (GstPad * pad, const GstCaps * caps)
   GstPadLinkReturn lret;
   GstPad *otherpad;
 
-  GST_DEBUG ("gst_videofilter_src_link");
   videofilter = GST_VIDEOFILTER (gst_pad_get_parent (pad));
+  GST_DEBUG_OBJECT (videofilter, "gst_videofilter_src_link");
 
   otherpad = (pad == videofilter->srcpad) ? videofilter->sinkpad :
       videofilter->srcpad;
@@ -254,7 +251,7 @@ gst_videofilter_link (GstPad * pad, const GstCaps * caps)
   if (GST_PAD_LINK_FAILED (lret))
     return lret;
 
-  GST_DEBUG ("width %d height %d", width, height);
+  GST_DEBUG_OBJECT (videofilter, "width %d height %d", width, height);
 
 #if 0
   if (pad == videofilter->srcpad) {
@@ -282,7 +279,7 @@ gst_videofilter_init (GTypeInstance * instance, gpointer g_class)
   GstVideofilter *videofilter = GST_VIDEOFILTER (instance);
   GstPadTemplate *pad_template;
 
-  GST_DEBUG ("gst_videofilter_init");
+  GST_DEBUG_OBJECT (videofilter, "gst_videofilter_init");
 
   pad_template =
       gst_element_class_get_pad_template (GST_ELEMENT_CLASS (g_class), "sink");
@@ -313,13 +310,13 @@ gst_videofilter_chain (GstPad * pad, GstData * _data)
   gulong size;
   GstBuffer *outbuf;
 
-  GST_DEBUG ("gst_videofilter_chain");
+  videofilter = GST_VIDEOFILTER (gst_pad_get_parent (pad));
+  GST_LOG_OBJECT (videofilter, "gst_videofilter_chain");
 
   g_return_if_fail (pad != NULL);
   g_return_if_fail (GST_IS_PAD (pad));
   g_return_if_fail (buf != NULL);
 
-  videofilter = GST_VIDEOFILTER (gst_pad_get_parent (pad));
   //g_return_if_fail (videofilter->inited);
 
   data = GST_BUFFER_DATA (buf);
@@ -330,11 +327,11 @@ gst_videofilter_chain (GstPad * pad, GstData * _data)
     return;
   }
 
-  GST_DEBUG ("gst_videofilter_chain: got buffer of %ld bytes in '%s'", size,
+  GST_LOG_OBJECT (videofilter, "got buffer of %ld bytes in '%s'", size,
       GST_OBJECT_NAME (videofilter));
 
-  GST_DEBUG
-      ("size=%ld from=%dx%d to=%dx%d fromsize=%ld (should be %d) tosize=%d",
+  GST_LOG_OBJECT (videofilter,
+      "size=%ld from=%dx%d to=%dx%d fromsize=%ld (should be %d) tosize=%d",
       size, videofilter->from_width, videofilter->from_height,
       videofilter->to_width, videofilter->to_height, size,
       videofilter->from_buf_size, videofilter->to_buf_size);
@@ -342,17 +339,18 @@ gst_videofilter_chain (GstPad * pad, GstData * _data)
   g_return_if_fail (size >= videofilter->from_buf_size);
 
   if (size > videofilter->from_buf_size) {
-    GST_INFO ("buffer size %ld larger than expected (%d)",
+    GST_INFO_OBJECT (videofilter, "buffer size %ld larger than expected (%d)",
         size, videofilter->from_buf_size);
   }
 
   outbuf = gst_pad_alloc_buffer (videofilter->srcpad, GST_BUFFER_OFFSET_NONE,
       videofilter->to_buf_size);
+  g_return_if_fail (GST_BUFFER_DATA (outbuf));
   GST_BUFFER_TIMESTAMP (outbuf) = GST_BUFFER_TIMESTAMP (buf);
   GST_BUFFER_DURATION (outbuf) = GST_BUFFER_DURATION (buf);
 
   g_return_if_fail (videofilter->format);
-  GST_DEBUG ("format %s", videofilter->format->fourcc);
+  GST_LOG_OBJECT (videofilter, "format %s", videofilter->format->fourcc);
 
   videofilter->in_buf = buf;
   videofilter->out_buf = outbuf;
@@ -360,7 +358,7 @@ gst_videofilter_chain (GstPad * pad, GstData * _data)
   videofilter->format->filter_func (videofilter, GST_BUFFER_DATA (outbuf),
       data);
 
-  GST_DEBUG ("gst_videofilter_chain: pushing buffer of %d bytes in '%s'",
+  GST_LOG_OBJECT (videofilter, "pushing buffer of %d bytes in '%s'",
       GST_BUFFER_SIZE (outbuf), GST_OBJECT_NAME (videofilter));
 
   gst_pad_push (videofilter->srcpad, GST_DATA (outbuf));
@@ -372,13 +370,13 @@ static void
 gst_videofilter_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
-  GstVideofilter *src;
+  GstVideofilter *videofilter;
 
   /* it's not null if we got it, but it might not be ours */
   g_return_if_fail (GST_IS_VIDEOFILTER (object));
-  src = GST_VIDEOFILTER (object);
+  videofilter = GST_VIDEOFILTER (object);
 
-  GST_DEBUG ("gst_videofilter_set_property");
+  GST_DEBUG_OBJECT (videofilter, "gst_videofilter_set_property");
   switch (prop_id) {
     default:
       break;
@@ -389,11 +387,11 @@ static void
 gst_videofilter_get_property (GObject * object, guint prop_id, GValue * value,
     GParamSpec * pspec)
 {
-  GstVideofilter *src;
+  GstVideofilter *videofilter;
 
   /* it's not null if we got it, but it might not be ours */
   g_return_if_fail (GST_IS_VIDEOFILTER (object));
-  src = GST_VIDEOFILTER (object);
+  videofilter = GST_VIDEOFILTER (object);
 
   switch (prop_id) {
     default:
@@ -447,14 +445,17 @@ gst_videofilter_set_output_size (GstVideofilter * videofilter,
   }
 }
 
-static void
+void
 gst_videofilter_setup (GstVideofilter * videofilter)
 {
   GstVideofilterClass *klass;
 
+  GST_DEBUG_OBJECT (videofilter, "setup");
+
   klass = GST_VIDEOFILTER_CLASS (G_OBJECT_GET_CLASS (videofilter));
 
   if (klass->setup) {
+    GST_DEBUG_OBJECT (videofilter, "calling class setup method");
     klass->setup (videofilter);
   }
 
@@ -478,6 +479,8 @@ gst_videofilter_setup (GstVideofilter * videofilter)
       (videofilter->to_width * videofilter->to_height *
       videofilter->format->bpp) / 8;
 
+  GST_DEBUG_OBJECT (videofilter, "from_buf_size %d to_buf_size %d",
+      videofilter->from_buf_size, videofilter->to_buf_size);
   videofilter->inited = TRUE;
 }
 
@@ -564,6 +567,8 @@ gst_videofilter_class_add_pad_templates (GstVideofilterClass *
 static gboolean
 plugin_init (GstPlugin * plugin)
 {
+  GST_DEBUG_CATEGORY_INIT (gst_videofilter_debug, "videofilter", 0,
+      "videofilter");
   return TRUE;
 }
 
