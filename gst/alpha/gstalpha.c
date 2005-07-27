@@ -62,8 +62,7 @@ struct _GstAlpha
   GstPad *srcpad;
 
   /* caps */
-  gint in_width, in_height;
-  gint out_width, out_height;
+  gint width, height;
   gboolean ayuv;
 
   gdouble alpha;
@@ -76,6 +75,7 @@ struct _GstAlpha
 
   gfloat angle;
   gfloat noise_level;
+  gfloat noise_level_square;
 
   gfloat y;                     /* chroma color */
   gint8 cb, cr;
@@ -159,6 +159,8 @@ static void gst_alpha_get_property (GObject * object, guint prop_id,
 static GstPadLinkReturn
 gst_alpha_sink_link (GstPad * pad, const GstCaps * caps);
 static void gst_alpha_chain (GstPad * pad, GstData * _data);
+
+static GstCaps *gst_alpha_get_caps (GstPad * pad);
 
 static GstElementStateReturn gst_alpha_change_state (GstElement * element);
 
@@ -272,11 +274,14 @@ gst_alpha_init (GstAlpha * alpha)
   gst_element_add_pad (GST_ELEMENT (alpha), alpha->sinkpad);
   gst_pad_set_chain_function (alpha->sinkpad, gst_alpha_chain);
   gst_pad_set_link_function (alpha->sinkpad, gst_alpha_sink_link);
+  gst_pad_set_getcaps_function (alpha->sinkpad, gst_alpha_get_caps);
 
   alpha->srcpad =
       gst_pad_new_from_template (gst_static_pad_template_get
       (&gst_alpha_src_template), "src");
   gst_element_add_pad (GST_ELEMENT (alpha), alpha->srcpad);
+  gst_pad_set_link_function (alpha->sinkpad, gst_alpha_sink_link);
+  gst_pad_set_getcaps_function (alpha->srcpad, gst_alpha_get_caps);
 
   alpha->alpha = DEFAULT_ALPHA;
   alpha->method = DEFAULT_METHOD;
@@ -285,6 +290,7 @@ gst_alpha_init (GstAlpha * alpha)
   alpha->target_b = DEFAULT_TARGET_B;
   alpha->angle = DEFAULT_ANGLE;
   alpha->noise_level = DEFAULT_NOISE_LEVEL;
+  alpha->noise_level_square = alpha->noise_level * alpha->noise_level;
 
   GST_FLAG_SET (alpha, GST_ELEMENT_EVENT_AWARE);
 }
@@ -387,15 +393,65 @@ gst_alpha_get_property (GObject * object, guint prop_id, GValue * value,
   }
 }
 
+static GstCaps *
+gst_alpha_get_caps (GstPad * pad)
+{
+  GstAlpha *alpha;
+  GstPad *otherpad;
+  GstStructure *structure;
+  GstCaps *othercaps, *caps;
+  const GstCaps *templcaps;
+  gint i;
+
+  alpha = GST_ALPHA (gst_pad_get_parent (pad));
+  otherpad = (alpha->srcpad == pad) ? alpha->sinkpad : alpha->srcpad;
+
+  templcaps = gst_pad_get_pad_template_caps (pad);
+  othercaps = gst_pad_get_allowed_caps (otherpad);
+
+  for (i = 0; i < gst_caps_get_size (othercaps); ++i) {
+    structure = gst_caps_get_structure (othercaps, i);
+    gst_structure_remove_field (structure, "format");
+  }
+
+  caps = gst_caps_intersect (othercaps, templcaps);
+  gst_caps_free (othercaps);
+
+  GST_LOG_OBJECT (pad, "returning caps %" GST_PTR_FORMAT, caps);
+
+  return caps;
+}
+
 static GstPadLinkReturn
 gst_alpha_sink_link (GstPad * pad, const GstCaps * caps)
 {
   GstAlpha *alpha;
   GstStructure *structure;
-  gboolean ret;
+  GstPadLinkReturn ret;
   guint32 fourcc;
+  GstPad *otherpad;
+  GstCaps *othercaps;
+  gint i;
 
   alpha = GST_ALPHA (gst_pad_get_parent (pad));
+
+  otherpad = (pad == alpha->srcpad) ? alpha->sinkpad : alpha->srcpad;
+
+  othercaps = gst_caps_copy (caps);
+  for (i = 0; i < gst_caps_get_size (othercaps); ++i) {
+    GstStructure *structure = gst_caps_get_structure (othercaps, i);
+
+    gst_structure_remove_field (structure, "format");
+  }
+
+  GST_LOG_OBJECT (pad, "trying to set caps to %" GST_PTR_FORMAT, othercaps);
+
+  ret = gst_pad_try_set_caps (otherpad, othercaps);
+  gst_caps_free (othercaps);
+
+  if (GST_PAD_LINK_FAILED (ret))
+    return ret;
+
   structure = gst_caps_get_structure (caps, 0);
 
   if (gst_structure_get_fourcc (structure, "format", &fourcc)) {
@@ -413,8 +469,8 @@ gst_alpha_sink_link (GstPad * pad, const GstCaps * caps)
     return GST_PAD_LINK_REFUSED;
   }
 
-  ret = gst_structure_get_int (structure, "width", &alpha->in_width);
-  ret &= gst_structure_get_int (structure, "height", &alpha->in_height);
+  ret = gst_structure_get_int (structure, "width", &alpha->width);
+  ret &= gst_structure_get_int (structure, "height", &alpha->height);
 
   return GST_PAD_LINK_OK;
 }
@@ -590,7 +646,7 @@ gst_alpha_chroma_key_ayuv (guchar * src, guchar * dest, gint width, gint height,
         tmp = z * (short) (z) + (x - alpha->kg) * (short) (x - alpha->kg);
         tmp = MIN (tmp, 0xffff);
 
-        if (tmp < alpha->noise_level * alpha->noise_level) {
+        if (tmp < alpha->noise_level_square) {
           b_alpha = 0;
         }
       }
@@ -720,7 +776,7 @@ gst_alpha_chroma_key_i420 (guchar * src, guchar * dest, gint width, gint height,
         tmp = z * (short) (z) + (x - alpha->kg) * (short) (x - alpha->kg);
         tmp = MIN (tmp, 0xffff);
 
-        if (tmp < alpha->noise_level * alpha->noise_level) {
+        if (tmp < alpha->noise_level_square) {
           /* Uncomment this if you want total suppression within the noise circle */
           b_alpha = 0;
         }
@@ -789,6 +845,8 @@ gst_alpha_init_params (GstAlpha * alpha)
   tmp = MIN (tmp, 255);
   alpha->kfgy_scale = tmp;
   alpha->kg = MIN (kgl, 127);
+
+  alpha->noise_level_square = alpha->noise_level * alpha->noise_level;
 }
 
 static void
@@ -797,7 +855,6 @@ gst_alpha_chain (GstPad * pad, GstData * _data)
   GstBuffer *buffer;
   GstAlpha *alpha;
   GstBuffer *outbuf;
-  gint new_width, new_height;
 
   alpha = GST_ALPHA (gst_pad_get_parent (pad));
 
@@ -814,30 +871,9 @@ gst_alpha_chain (GstPad * pad, GstData * _data)
 
   buffer = GST_BUFFER (_data);
 
-  new_width = alpha->in_width;
-  new_height = alpha->in_height;
-
-  if (new_width != alpha->out_width ||
-      new_height != alpha->out_height || !GST_PAD_CAPS (alpha->srcpad)) {
-    GstCaps *newcaps;
-
-    newcaps = gst_caps_copy (gst_pad_get_negotiated_caps (alpha->sinkpad));
-    gst_caps_set_simple (newcaps,
-        "format", GST_TYPE_FOURCC, GST_STR_FOURCC ("AYUV"),
-        "width", G_TYPE_INT, new_width, "height", G_TYPE_INT, new_height, NULL);
-
-    if (!gst_pad_try_set_caps (alpha->srcpad, newcaps)) {
-      GST_ELEMENT_ERROR (alpha, CORE, NEGOTIATION, (NULL), (NULL));
-      return;
-    }
-
-    alpha->out_width = new_width;
-    alpha->out_height = new_height;
-  }
-
   outbuf =
-      gst_buffer_new_and_alloc (ROUND_UP_2 (new_width) *
-      ROUND_UP_2 (new_height) * 4);
+      gst_buffer_new_and_alloc (ROUND_UP_2 (alpha->width) *
+      ROUND_UP_2 (alpha->height) * 4);
   GST_BUFFER_TIMESTAMP (outbuf) = GST_BUFFER_TIMESTAMP (buffer);
   GST_BUFFER_DURATION (outbuf) = GST_BUFFER_DURATION (buffer);
 
@@ -845,10 +881,12 @@ gst_alpha_chain (GstPad * pad, GstData * _data)
     case ALPHA_METHOD_SET:
       if (alpha->ayuv) {
         gst_alpha_set_ayuv (GST_BUFFER_DATA (buffer),
-            GST_BUFFER_DATA (outbuf), new_width, new_height, alpha->alpha);
+            GST_BUFFER_DATA (outbuf), alpha->width, alpha->height,
+            alpha->alpha);
       } else {
         gst_alpha_set_i420 (GST_BUFFER_DATA (buffer),
-            GST_BUFFER_DATA (outbuf), new_width, new_height, alpha->alpha);
+            GST_BUFFER_DATA (outbuf), alpha->width, alpha->height,
+            alpha->alpha);
       }
       break;
     case ALPHA_METHOD_GREEN:
@@ -856,10 +894,10 @@ gst_alpha_chain (GstPad * pad, GstData * _data)
     case ALPHA_METHOD_CUSTOM:
       if (alpha->ayuv) {
         gst_alpha_chroma_key_ayuv (GST_BUFFER_DATA (buffer),
-            GST_BUFFER_DATA (outbuf), new_width, new_height, alpha);
+            GST_BUFFER_DATA (outbuf), alpha->width, alpha->height, alpha);
       } else {
         gst_alpha_chroma_key_i420 (GST_BUFFER_DATA (buffer),
-            GST_BUFFER_DATA (outbuf), new_width, new_height, alpha);
+            GST_BUFFER_DATA (outbuf), alpha->width, alpha->height, alpha);
       }
       break;
     default:
