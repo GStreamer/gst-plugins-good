@@ -80,7 +80,7 @@ gst_jpegdec_get_type (void)
 
   if (!jpegdec_type) {
     static const GTypeInfo jpegdec_info = {
-      sizeof (GstJpegDec),
+      sizeof (GstJpegDecClass),
       gst_jpegdec_base_init,
       NULL,
       (GClassInitFunc) gst_jpegdec_class_init,

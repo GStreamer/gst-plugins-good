@@ -99,7 +99,7 @@ gst_jpegenc_get_type (void)
 
   if (!jpegenc_type) {
     static const GTypeInfo jpegenc_info = {
-      sizeof (GstJpegEnc),
+      sizeof (GstJpegEncClass),
       gst_jpegenc_base_init,
       NULL,
       (GClassInitFunc) gst_jpegenc_class_init,
