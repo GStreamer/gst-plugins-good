@@ -230,6 +230,8 @@ gst_flacenc_class_init (FlacEncClass * klass)
 
   parent_class = g_type_class_ref (GST_TYPE_ELEMENT);
 
+  gst_tag_register_musicbrainz_tags ();
+
   /* we have no properties atm so this is a bit silly */
   gobject_class->set_property = gst_flacenc_set_property;
   gobject_class->get_property = gst_flacenc_get_property;
