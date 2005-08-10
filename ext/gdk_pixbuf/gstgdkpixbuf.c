@@ -78,10 +78,10 @@ static GstStaticPadTemplate gst_gdk_pixbuf_sink_template =
     );
 
 static GstStaticPadTemplate gst_gdk_pixbuf_src_template =
-GST_STATIC_PAD_TEMPLATE ("src",
+    GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_RGB)
+    GST_STATIC_CAPS (GST_VIDEO_CAPS_RGB "; " GST_VIDEO_CAPS_RGBA)
     );
 
 gboolean pixbufscale_init (GstPlugin * plugin);
@@ -298,12 +298,12 @@ gst_gdk_pixbuf_chain (GstPad * pad, GstData * _data)
       GError *error = NULL;
 
       if (!gdk_pixbuf_loader_close (filter->pixbuf_loader, &error)) {
-        GST_ELEMENT_ERROR (filter, LIBRARY, SHUTDOWN, (NULL), (error->message));
+        GST_ERROR_OBJECT (filter, error->message);
         g_error_free (error);
-        return;
       }
 
-      pixbuf = gdk_pixbuf_loader_get_pixbuf (filter->pixbuf_loader);
+      if (!(pixbuf = gdk_pixbuf_loader_get_pixbuf (filter->pixbuf_loader)))
+        goto next;
 
       if (filter->image_size == 0) {
         GstCaps *caps;
@@ -313,14 +313,24 @@ gst_gdk_pixbuf_chain (GstPad * pad, GstData * _data)
         /* gdk_pixbuf likes to pad rowstride to 4 byte boundaries which we can't do
          * at the moment
          */
-        filter->rowstride = filter->width * 3;
+        filter->rowstride = gdk_pixbuf_get_rowstride (pixbuf);
         filter->image_size = filter->rowstride * filter->height;
 
-        caps = gst_caps_copy (gst_pad_get_pad_template_caps (filter->srcpad));
+        if (gdk_pixbuf_get_rowstride (pixbuf) / filter->width == 4) {
+          caps = gst_caps_from_string (GST_VIDEO_CAPS_RGBA);
+        } else if (gdk_pixbuf_get_rowstride (pixbuf) / filter->width == 3) {
+          caps = gst_caps_from_string (GST_VIDEO_CAPS_RGB);
+        } else {
+          GST_ELEMENT_ERROR (filter, CORE, NEGOTIATION, (NULL),
+              ("Bpp %d not supported",
+                  gdk_pixbuf_get_bits_per_sample (pixbuf)));
+          return;
+        }
         gst_caps_set_simple (caps,
             "width", G_TYPE_INT, filter->width,
             "height", G_TYPE_INT, filter->height,
             "framerate", G_TYPE_DOUBLE, filter->framerate, NULL);
+        GST_DEBUG ("Set size to %dx%d", filter->width, filter->height);
 
         gst_pad_set_explicit_caps (filter->srcpad, caps);
       }
@@ -347,6 +357,7 @@ gst_gdk_pixbuf_chain (GstPad * pad, GstData * _data)
         }
       }
 
+      GST_DEBUG ("pushing...");
       gst_pad_push (filter->srcpad, GST_DATA (outbuf));
 
       g_object_unref (G_OBJECT (filter->pixbuf_loader));
@@ -362,7 +373,7 @@ gst_gdk_pixbuf_chain (GstPad * pad, GstData * _data)
       filter->pixbuf_loader = NULL;
     }
   }
-
+next:
   if (GST_IS_BUFFER (_data)) {
     if (filter->pixbuf_loader == NULL) {
       filter->pixbuf_loader = gdk_pixbuf_loader_new ();
