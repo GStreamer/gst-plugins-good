@@ -1,9 +1,9 @@
 /* GStreamer
- * Copyright (C) <1999> Erik Walthinsen <omega@cse.ogi.edu>
+ * Copyright (C) 1999 Erik Walthinsen <omega@cse.ogi.edu>
+ * Copyright (C) 2000,2001,2002,2003,2004,2005
+ *           Thomas Vander Stichele <thomas at apestaart dot org>
  *
  * gstlevel.c: signals RMS, peak and decaying peak levels
- * Copyright (C) 2000,2001,2002,2003
- *           Thomas Vander Stichele <thomas at apestaart dot org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -154,20 +154,18 @@ gst_level_link (GstPad * pad, const GstCaps * caps)
   g_free (filter->last_peak);
   g_free (filter->decay_peak);
   g_free (filter->decay_peak_age);
-  g_free (filter->MS);
   g_free (filter->RMS_dB);
   filter->CS = g_new (double, filter->channels);
   filter->peak = g_new (double, filter->channels);
   filter->last_peak = g_new (double, filter->channels);
   filter->decay_peak = g_new (double, filter->channels);
   filter->decay_peak_age = g_new (double, filter->channels);
-  filter->MS = g_new (double, filter->channels);
   filter->RMS_dB = g_new (double, filter->channels);
 
   for (i = 0; i < filter->channels; ++i) {
     filter->CS[i] = filter->peak[i] = filter->last_peak[i] =
         filter->decay_peak[i] = filter->decay_peak_age[i] =
-        filter->MS[i] = filter->RMS_dB[i] = 0.0;
+        filter->RMS_dB[i] = 0.0;
   }
 
   return GST_PAD_LINK_OK;
@@ -188,7 +186,7 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
   gint16 *in_data;
 
   double CS = 0.0;
-  gint num_samples = 0;
+  gint num_int_samples = 0;
   gint i;
 
   g_return_if_fail (pad != NULL);
@@ -207,49 +205,49 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
   }
 
   for (i = 0; i < filter->channels; ++i)
-    filter->CS[i] = filter->peak[i] = filter->MS[i] = filter->RMS_dB[i] = 0.0;
+    filter->peak[i] = filter->RMS_dB[i] = 0.0;
 
   in_data = (gint16 *) GST_BUFFER_DATA (buf);
 
   /* total number of interleaved samples */
-  num_samples = GST_BUFFER_SIZE (buf) / (filter->width / 8);
-  if (num_samples % filter->channels != 0)
+  num_int_samples = GST_BUFFER_SIZE (buf) / (filter->width / 8);
+  if (num_int_samples % filter->channels != 0)
     g_warning
         ("WARNING: level: programming error, data not properly interleaved");
 
   for (i = 0; i < filter->channels; ++i) {
+    CS = 0.0;
     switch (filter->width) {
       case 16:
-        gst_level_fast_16bit_chain (in_data + i, num_samples,
+        gst_level_fast_16bit_chain (in_data + i, num_int_samples,
             filter->channels, filter->width - 1, &CS, &filter->peak[i]);
         break;
       case 8:
-        gst_level_fast_8bit_chain (((gint8 *) in_data) + i, num_samples,
+        gst_level_fast_8bit_chain (((gint8 *) in_data) + i, num_int_samples,
             filter->channels, filter->width - 1, &CS, &filter->peak[i]);
         break;
     }
-    GST_LOG_OBJECT (filter, "channel %d, cumulative sum %f, peak %f", i, CS,
-        filter->peak[i]);
+    GST_LOG_OBJECT (filter,
+        "channel %d, cumulative sum %f, peak %f, over %d channels/%d samples",
+        i, CS, filter->peak[i], num_int_samples, filter->channels);
     filter->CS[i] += CS;
 
   }
   gst_pad_push (filter->srcpad, GST_DATA (buf));
 
-  filter->num_samples += num_samples;
+  filter->num_samples += num_int_samples;
 
   for (i = 0; i < filter->channels; ++i) {
-    filter->decay_peak_age[i] += num_samples;
-    /* g_print ("filter peak info [%d]: peak %f, age %f\n", i,
-       filter->last_peak[i], filter->decay_peak_age[i]); */
+    filter->decay_peak_age[i] += num_int_samples;
     /* update running peak */
     if (filter->peak[i] > filter->last_peak[i])
       filter->last_peak[i] = filter->peak[i];
 
     /* update decay peak */
     if (filter->peak[i] >= filter->decay_peak[i]) {
-      /* g_print ("new peak, %f\n", filter->peak[i]); */
       filter->decay_peak[i] = filter->peak[i];
       filter->decay_peak_age[i] = 0;
+      GST_LOG_OBJECT (filter, "peak refreshed, not decaying");
     } else {
       /* make decay peak fall off if too old */
       if (filter->decay_peak_age[i] > filter->rate * filter->decay_peak_ttl) {
@@ -258,15 +256,19 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
         double length;          /* length of buffer in seconds */
 
 
-        length = (double) num_samples / (filter->channels * filter->rate);
+        length = (double) num_int_samples / (filter->channels * filter->rate);
         falloff_dB = filter->decay_peak_falloff * length;
         falloff = pow (10, falloff_dB / -20.0);
 
-        /* g_print ("falloff: length %f, dB falloff %f, falloff factor %e\n",
-           length, falloff_dB, falloff); */
+        GST_LOG_OBJECT (filter,
+            "falloff: length %f, dB falloff %f, falloff factor %e",
+            length, falloff_dB, falloff);
         filter->decay_peak[i] *= falloff;
-        /* g_print ("peak is %f samples old, decayed with factor %e to %f\n",
-           filter->decay_peak_age[i], falloff, filter->decay_peak[i]); */
+        GST_LOG_OBJECT (filter,
+            "peak is %f samples old, decayed with factor %e to %f",
+            filter->decay_peak_age[i], falloff, filter->decay_peak[i]);
+      } else {
+        GST_LOG_OBJECT (filter, "peak not old enough, not decaying");
       }
     }
   }
@@ -276,18 +278,29 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
   if (filter->num_samples >= filter->interval * (gdouble) filter->rate) {
     if (filter->signal) {
       gdouble RMS, peak, endtime;
+      gdouble RMSdB, lastdB, decaydB;
 
       for (i = 0; i < filter->channels; ++i) {
         RMS = sqrt (filter->CS[i] / (filter->num_samples / filter->channels));
+        GST_LOG_OBJECT (filter,
+            "CS: %f, num_samples %f, channel %d, RMS %f",
+            filter->CS[i], filter->num_samples, i, RMS);
         peak = filter->last_peak[i];
-        num_samples = GST_BUFFER_SIZE (buf) / (filter->width / 8);
+        num_int_samples = GST_BUFFER_SIZE (buf) / (filter->width / 8);
         endtime = (double) GST_BUFFER_TIMESTAMP (buf) / GST_SECOND
-            + (double) num_samples / (double) filter->rate;
+            + (double) num_int_samples / (double) filter->rate;
 
+        /* RMS values are calculated in amplitude, so 20 * log 10 */
+        RMSdB = 20 * log10 (RMS);
+        /* peak values are square sums, ie. power, so 10 * log 10 */
+        lastdB = 10 * log10 (filter->last_peak[i]);
+        decaydB = 10 * log10 (filter->decay_peak[i]);
+
+        GST_LOG_OBJECT (filter,
+            "time %f, channel %d, RMS %f dB, peak %f dB, decay %f dB",
+            endtime, i, RMSdB, lastdB, decaydB);
         g_signal_emit (G_OBJECT (filter), gst_filter_signals[SIGNAL_LEVEL], 0,
-            endtime, i,
-            20 * log10 (RMS), 20 * log10 (filter->last_peak[i]),
-            20 * log10 (filter->decay_peak[i]));
+            endtime, i, RMSdB, lastdB, decaydB);
         /* we emitted, so reset cumulative and normal peak */
         filter->CS[i] = 0.0;
         filter->last_peak[i] = 0.0;
@@ -393,6 +406,21 @@ gst_level_class_init (GstLevelClass * klass)
   gobject_class->set_property = gst_level_set_property;
   gobject_class->get_property = gst_level_get_property;
 
+  /**
+   * GstLevel::level:
+   * @gstelement: the #GstLevel object which received the signal
+   * @double:     the time (in seconds) for this level notification
+   * @int:        the channel index [0..n-1] for this level notification
+   * @double:     the average RMS (amplitude) value over this section, in dB
+   * @double:     the peak RMS (amplitude) value over this section, in dB
+   * @double:     the decay peak RMS (amplitude) value over this section, in dB
+   *
+   * The average RMS gives an indication of the power or "fullness" of audio.
+   * The peak RMS gives an indication of the highest amplitude the audio
+   * has reached in this track.
+   * The decay peak RMS is a value that smears out the peak RMS value over
+   * a longer time period; it is commonly used in VU meters.
+   */
   gst_filter_signals[SIGNAL_LEVEL] =
       g_signal_new ("level", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
       G_STRUCT_OFFSET (GstLevelClass, level), NULL, NULL,
@@ -423,7 +451,6 @@ gst_level_init (GstLevel * filter)
 
   filter->CS = NULL;
   filter->peak = NULL;
-  filter->MS = NULL;
   filter->RMS_dB = NULL;
 
   filter->rate = 0;
