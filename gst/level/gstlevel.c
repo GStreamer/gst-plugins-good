@@ -186,7 +186,7 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
   gint16 *in_data;
 
   double CS = 0.0;
-  gint num_int_samples = 0;
+  gint num_int_samples = 0;     /* total number of interleaved samples */
   gint i;
 
   g_return_if_fail (pad != NULL);
@@ -209,7 +209,6 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
 
   in_data = (gint16 *) GST_BUFFER_DATA (buf);
 
-  /* total number of interleaved samples */
   num_int_samples = GST_BUFFER_SIZE (buf) / (filter->width / 8);
   if (num_int_samples % filter->channels != 0)
     g_warning
@@ -235,10 +234,10 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
   }
   gst_pad_push (filter->srcpad, GST_DATA (buf));
 
-  filter->num_samples += num_int_samples;
+  filter->num_samples += num_int_samples / filter->channels;
 
   for (i = 0; i < filter->channels; ++i) {
-    filter->decay_peak_age[i] += num_int_samples;
+    filter->decay_peak_age[i] += num_int_samples / filter->channels;
     /* update running peak */
     if (filter->peak[i] > filter->last_peak[i])
       filter->last_peak[i] = filter->peak[i];
@@ -277,18 +276,17 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
 
   if (filter->num_samples >= filter->interval * (gdouble) filter->rate) {
     if (filter->signal) {
-      gdouble RMS, peak, endtime;
+      gdouble RMS, endtime;
       gdouble RMSdB, lastdB, decaydB;
 
+      endtime = (double) GST_BUFFER_TIMESTAMP (buf) / GST_SECOND
+          + (double) num_int_samples / (filter->rate * filter->channels);
+
       for (i = 0; i < filter->channels; ++i) {
-        RMS = sqrt (filter->CS[i] / (filter->num_samples / filter->channels));
+        RMS = sqrt (filter->CS[i] / filter->num_samples);
         GST_LOG_OBJECT (filter,
             "CS: %f, num_samples %f, channel %d, RMS %f",
             filter->CS[i], filter->num_samples, i, RMS);
-        peak = filter->last_peak[i];
-        num_int_samples = GST_BUFFER_SIZE (buf) / (filter->width / 8);
-        endtime = (double) GST_BUFFER_TIMESTAMP (buf) / GST_SECOND
-            + (double) num_int_samples / (double) filter->rate;
 
         /* RMS values are calculated in amplitude, so 20 * log 10 */
         RMSdB = 20 * log10 (RMS);
