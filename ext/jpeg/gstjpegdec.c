@@ -410,10 +410,8 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
   guchar *data, *outdata;
   gulong size, outsize;
   GstBuffer *outbuf;
-
-  /*GstMeta *meta; */
   gint width, height;
-  guchar *base[3];
+  guchar *base[3], *last[3];
   gint i, j, k;
   gint r_h, r_v;
 
@@ -437,8 +435,11 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
   jpegdec->jsrc.bytes_in_buffer = size;
 
   if (setjmp (jpegdec->jerr.setjmp_buffer)) {
+    guint code = jpegdec->jerr.pub.msg_code;
+
     GST_ELEMENT_ERROR (jpegdec, LIBRARY, TOO_LAZY,
-        (_("Failed to decode JPEG image")), (NULL));
+        (_("Failed to decode JPEG image")),
+        ("Error #%u: %s", code, jpegdec->jerr.pub.jpeg_message_table[code]));
     gst_buffer_unref (buf);
     return;
   }
@@ -500,21 +501,31 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
   base[1] = outdata + I420_U_OFFSET (width, height);
   base[2] = outdata + I420_V_OFFSET (width, height);
 
+  /* make sure we don't make jpeglib write beyond our buffer,
+   * which might happen if (height % (r_v*DCTSIZE)) != 0 */
+  last[0] = base[0] + (I420_Y_ROWSTRIDE (width) * ((height / 1) - 1));
+  last[1] = base[1] + (I420_U_ROWSTRIDE (width) * ((height / 2) - 1));
+  last[2] = base[2] + (I420_V_ROWSTRIDE (width) * ((height / 2) - 1));
+
   GST_LOG_OBJECT (jpegdec, "decompressing %u",
       jpegdec->cinfo.rec_outbuf_height);
   for (i = 0; i < height; i += r_v * DCTSIZE) {
     for (j = 0, k = 0; j < (r_v * DCTSIZE); j += r_v, k++) {
       jpegdec->line[0][j] = base[0];
-      base[0] += I420_Y_ROWSTRIDE (width);
+      if (base[0] < last[0])
+        base[0] += I420_Y_ROWSTRIDE (width);
       if (r_v == 2) {
         jpegdec->line[0][j + 1] = base[0];
-        base[0] += I420_Y_ROWSTRIDE (width);
+        if (base[0] < last[0])
+          base[0] += I420_Y_ROWSTRIDE (width);
       }
       jpegdec->line[1][k] = base[1];
       jpegdec->line[2][k] = base[2];
       if (r_v == 2 || k & 1) {
-        base[1] += I420_U_ROWSTRIDE (width);
-        base[2] += I420_V_ROWSTRIDE (width);
+        if (base[1] < last[1] && base[2] < last[2]) {
+          base[1] += I420_U_ROWSTRIDE (width);
+          base[2] += I420_V_ROWSTRIDE (width);
+        }
       }
     }
     /*g_print ("%d\n", jpegdec->cinfo.output_scanline); */
