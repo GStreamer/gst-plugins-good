@@ -40,6 +40,11 @@ GstElementDetails gst_jpegdec_details = {
 GST_DEBUG_CATEGORY (jpegdec_debug);
 #define GST_CAT_DEFAULT jpegdec_debug
 
+#define MIN_WIDTH  16
+#define MAX_WIDTH  4096
+#define MIN_HEIGHT 16
+#define MAX_HEIGHT 4096
+
 
 /* These macros are adapted from videotestsrc.c 
  *  and/or gst-plugins/gst/games/gstvideoimage.c */
@@ -110,8 +115,9 @@ GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS ("image/jpeg, "
-        "width = (int) [ 16, 4096 ], "
-        "height = (int) [ 16, 4096 ], " "framerate = (double) [ 1, MAX ]")
+        "width = (int) [ " G_STRINGIFY (MIN_WIDTH) ", " G_STRINGIFY (MAX_WIDTH)
+        " ], " "height = (int) [ " G_STRINGIFY (MIN_HEIGHT) ", "
+        G_STRINGIFY (MAX_HEIGHT) " ], " "framerate = (double) [ 1, MAX ]")
     );
 
 static void
@@ -221,10 +227,6 @@ gst_jpegdec_init (GstJpegDec * jpegdec)
   jpegdec->format = -1;
   jpegdec->width = -1;
   jpegdec->height = -1;
-
-  jpegdec->line[0] = NULL;
-  jpegdec->line[1] = NULL;
-  jpegdec->line[2] = NULL;
 
   /* setup jpeglib */
   memset (&jpegdec->cinfo, 0, sizeof (jpegdec->cinfo));
@@ -403,6 +405,86 @@ guarantee_huff_tables (j_decompress_ptr dinfo)
 }
 
 static void
+gst_jpeg_dec_decode_indirect (GstJpegDec * dec, guchar * base[3],
+    guchar * last[3], guint width, guint height, gint r_v)
+{
+  guchar y[16][MAX_WIDTH];
+  guchar u[8][MAX_WIDTH / 2];
+  guchar v[8][MAX_WIDTH / 2];
+  guchar *y_rows[16] = { y[0], y[1], y[2], y[3], y[4], y[5], y[6], y[7],
+    y[8], y[9], y[10], y[11], y[12], y[13], y[14], y[15]
+  };
+  guchar *u_rows[8] = { u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7] };
+  guchar *v_rows[8] = { v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7] };
+  guchar **scanarray[3] = { y_rows, u_rows, v_rows };
+  gint i, j, k;
+
+  GST_DEBUG_OBJECT (dec,
+      "unadvantageous width, taking slow route involving memcpy");
+
+  for (i = 0; i < height; i += r_v * DCTSIZE) {
+    jpeg_read_raw_data (&dec->cinfo, scanarray, r_v * DCTSIZE);
+    for (j = 0, k = 0; j < (r_v * DCTSIZE); j += r_v, k++) {
+      memcpy (base[0], y_rows[j], I420_Y_ROWSTRIDE (width));
+      if (base[0] < last[0])
+        base[0] += I420_Y_ROWSTRIDE (width);
+      if (r_v == 2) {
+        memcpy (base[0], y_rows[j + 1], I420_Y_ROWSTRIDE (width));
+        if (base[0] < last[0])
+          base[0] += I420_Y_ROWSTRIDE (width);
+      }
+      memcpy (base[1], u_rows[k], I420_U_ROWSTRIDE (width));
+      memcpy (base[2], v_rows[k], I420_V_ROWSTRIDE (width));
+      if (r_v == 2 || (k & 1) != 0) {
+        if (base[1] < last[1] && base[2] < last[2]) {
+          base[1] += I420_U_ROWSTRIDE (width);
+          base[2] += I420_V_ROWSTRIDE (width);
+        }
+      }
+    }
+  }
+}
+
+static void
+gst_jpeg_dec_decode_direct (GstJpegDec * dec, guchar * base[3],
+    guchar * last[3], guint width, guint height, gint r_v)
+{
+  guchar **line[3];             /* the jpeg line buffer */
+  gint i, j, k;
+
+  line[0] = g_alloca ((r_v * DCTSIZE) * sizeof (guchar *));
+  line[1] = g_alloca ((r_v * DCTSIZE) * sizeof (guchar *));
+  line[2] = g_alloca ((r_v * DCTSIZE) * sizeof (guchar *));
+  memset (line[0], 0, (r_v * DCTSIZE) * sizeof (guchar *));
+  memset (line[1], 0, (r_v * DCTSIZE) * sizeof (guchar *));
+  memset (line[2], 0, (r_v * DCTSIZE) * sizeof (guchar *));
+
+  /* let jpeglib decode directly into our final buffer */
+  GST_DEBUG_OBJECT (dec, "decoding directly into output buffer");
+  for (i = 0; i < height; i += r_v * DCTSIZE) {
+    for (j = 0, k = 0; j < (r_v * DCTSIZE); j += r_v, k++) {
+      line[0][j] = base[0];
+      if (base[0] < last[0])
+        base[0] += I420_Y_ROWSTRIDE (width);
+      if (r_v == 2) {
+        line[0][j + 1] = base[0];
+        if (base[0] < last[0])
+          base[0] += I420_Y_ROWSTRIDE (width);
+      }
+      line[1][k] = base[1];
+      line[2][k] = base[2];
+      if (r_v == 2 || (k & 1) != 0) {
+        if (base[1] < last[1] && base[2] < last[2]) {
+          base[1] += I420_U_ROWSTRIDE (width);
+          base[2] += I420_V_ROWSTRIDE (width);
+        }
+      }
+    }
+    jpeg_read_raw_data (&dec->cinfo, line, r_v * DCTSIZE);
+  }
+}
+
+static void
 gst_jpegdec_chain (GstPad * pad, GstData * _data)
 {
   GstBuffer *buf = GST_BUFFER (_data);
@@ -412,13 +494,11 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
   GstBuffer *outbuf;
   gint width, height;
   guchar *base[3], *last[3];
-  gint i, j, k;
   gint r_h, r_v;
 
   g_return_if_fail (pad != NULL);
   g_return_if_fail (GST_IS_PAD (pad));
   g_return_if_fail (buf != NULL);
-  /*g_return_if_fail(GST_IS_BUFFER(buf)); */
 
   jpegdec = GST_JPEGDEC (GST_OBJECT_PARENT (pad));
 
@@ -465,12 +545,9 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
   width = jpegdec->cinfo.output_width;
   height = jpegdec->cinfo.output_height;
 
-  if (jpegdec->height != height || jpegdec->line[0] == NULL) {
+  if (jpegdec->height != height) {
     GstCaps *caps;
 
-    jpegdec->line[0] = g_realloc (jpegdec->line[0], height * sizeof (char *));
-    jpegdec->line[1] = g_realloc (jpegdec->line[1], height * sizeof (char *));
-    jpegdec->line[2] = g_realloc (jpegdec->line[2], height * sizeof (char *));
     jpegdec->height = height;
 
     caps = gst_caps_new_simple ("video/x-raw-yuv",
@@ -504,32 +581,24 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
   /* make sure we don't make jpeglib write beyond our buffer,
    * which might happen if (height % (r_v*DCTSIZE)) != 0 */
   last[0] = base[0] + (I420_Y_ROWSTRIDE (width) * ((height / 1) - 1));
-  last[1] = base[1] + (I420_U_ROWSTRIDE (width) * ((height / 2) - 1));
-  last[2] = base[2] + (I420_V_ROWSTRIDE (width) * ((height / 2) - 1));
+  last[1] =
+      base[1] + (I420_U_ROWSTRIDE (width) * ((ROUND_UP_2 (height) / 2) - 1));
+  last[2] =
+      base[2] + (I420_V_ROWSTRIDE (width) * ((ROUND_UP_2 (height) / 2) - 1));
 
   GST_LOG_OBJECT (jpegdec, "decompressing %u",
       jpegdec->cinfo.rec_outbuf_height);
-  for (i = 0; i < height; i += r_v * DCTSIZE) {
-    for (j = 0, k = 0; j < (r_v * DCTSIZE); j += r_v, k++) {
-      jpegdec->line[0][j] = base[0];
-      if (base[0] < last[0])
-        base[0] += I420_Y_ROWSTRIDE (width);
-      if (r_v == 2) {
-        jpegdec->line[0][j + 1] = base[0];
-        if (base[0] < last[0])
-          base[0] += I420_Y_ROWSTRIDE (width);
-      }
-      jpegdec->line[1][k] = base[1];
-      jpegdec->line[2][k] = base[2];
-      if (r_v == 2 || k & 1) {
-        if (base[1] < last[1] && base[2] < last[2]) {
-          base[1] += I420_U_ROWSTRIDE (width);
-          base[2] += I420_V_ROWSTRIDE (width);
-        }
-      }
-    }
-    /*g_print ("%d\n", jpegdec->cinfo.output_scanline); */
-    jpeg_read_raw_data (&jpegdec->cinfo, jpegdec->line, r_v * DCTSIZE);
+
+  /* For some widths jpeglib requires more horizontal padding than I420 
+   * provides. In those cases we need to decode into separate buffers and then
+   * copy over the data into our final picture buffer, otherwise jpeglib might
+   * write over the end of a line into the beginning of the next line,
+   * resulting in blocky artifacts on the left side of the picture. */
+  if ((I420_Y_ROWSTRIDE (width) % (jpegdec->cinfo.max_h_samp_factor *
+              DCTSIZE)) > 0) {
+    gst_jpeg_dec_decode_indirect (jpegdec, base, last, width, height, r_v);
+  } else {
+    gst_jpeg_dec_decode_direct (jpegdec, base, last, width, height, r_v);
   }
 
   GST_LOG_OBJECT (jpegdec, "decompressing finished");
@@ -544,23 +613,12 @@ gst_jpegdec_chain (GstPad * pad, GstData * _data)
 static GstElementStateReturn
 gst_jpegdec_change_state (GstElement * element)
 {
-
-  GstJpegDec *filter = GST_JPEGDEC (element);
+  /* GstJpegDec *filter = GST_JPEGDEC (element); */
 
   switch (GST_STATE_TRANSITION (element)) {
     case GST_STATE_NULL_TO_READY:
-      GST_DEBUG ("gst_jpegdec_change_state: setting line buffers");
-      filter->line[0] = NULL;
-      filter->line[1] = NULL;
-      filter->line[2] = NULL;
       break;
     case GST_STATE_READY_TO_NULL:
-      g_free (filter->line[0]);
-      g_free (filter->line[1]);
-      g_free (filter->line[2]);
-      filter->line[0] = NULL;
-      filter->line[1] = NULL;
-      filter->line[2] = NULL;
       break;
     default:
       break;

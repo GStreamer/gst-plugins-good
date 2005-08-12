@@ -59,7 +59,6 @@ struct _GstJpegDec {
   /* pads */
   GstPad *sinkpad,*srcpad;
 
-  int parse_state;
   /* the timestamp of the next frame */
   guint64 next_time;
   /* the interval between frames */
@@ -70,10 +69,6 @@ struct _GstJpegDec {
   gint width;
   gint height;
   gdouble fps;
-  /* the size of the output buffer */
-  gint outsize;
-  /* the jpeg line buffer */
-  guchar **line[3];
 
   struct jpeg_decompress_struct cinfo;
   struct GstJpegDecErrorMgr jerr;
