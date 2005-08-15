@@ -243,9 +243,14 @@ gst_esdsink_get_time (GstClock * clock, gpointer data)
 {
   GstEsdsink *esdsink = GST_ESDSINK (data);
   GstClockTime res;
+  int latency = 0;
 
-  res = (esdsink->handled * GST_SECOND) / esdsink->frequency;
-  //- GST_SECOND * 2;
+  //if (esdsink->handled > 0 && esdsink->fd > 0)
+  //latency = esd_get_latency (esdsink->fd);
+  if (latency > esdsink->handled)
+    latency = esdsink->handled;
+
+  res = ((esdsink->handled - latency) * GST_SECOND) / esdsink->frequency;
 
   return res;
 }
@@ -302,12 +307,19 @@ gst_esdsink_chain (GstPad * pad, GstData * _data)
   }
 
   if (GST_BUFFER_DATA (buf) != NULL) {
-    if (!esdsink->mute && esdsink->fd >= 0) {
-      guchar *data = GST_BUFFER_DATA (buf);
-      gint size = GST_BUFFER_SIZE (buf);
+    guchar *data = GST_BUFFER_DATA (buf);
+    gint size = GST_BUFFER_SIZE (buf);
+
+    if (GST_BUFFER_TIMESTAMP_IS_VALID (buf)) {
+      esdsink->handled = esdsink->frequency * GST_BUFFER_TIMESTAMP (buf) /
+          GST_SECOND;
+    }
+
+    while (size > 0 && !esdsink->mute && esdsink->fd >= 0) {
       gint to_write = 0;
 
-      to_write = size;
+      to_write = size > 128 ? 128 : size;
+      size -= to_write;
 
       GST_LOG ("fd=%d data=%p size=%d",
           esdsink->fd, GST_BUFFER_DATA (buf), GST_BUFFER_SIZE (buf));
