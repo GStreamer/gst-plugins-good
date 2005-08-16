@@ -542,6 +542,7 @@ gst_esdsink_change_state (GstElement * element)
         gst_esdsink_close_audio (GST_ESDSINK (element));
         esdsink->link_open = FALSE;
       }
+      esdsink->handled = 0;
       break;
     case GST_STATE_READY_TO_NULL:
       break;
