@@ -175,10 +175,14 @@ static void inline
 gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
     gint resolution, double *CS, double *peak)
 #include "filter.func"
+ ;
+
      static void inline
          gst_level_fast_8bit_chain (gint8 * in, guint num, gint channels,
     gint resolution, double *CS, double *peak)
 #include "filter.func"
+ ;
+
      static void gst_level_chain (GstPad * pad, GstData * _data)
 {
   GstBuffer *buf = GST_BUFFER (_data);
@@ -213,6 +217,9 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
   if (num_int_samples % filter->channels != 0)
     g_warning
         ("WARNING: level: programming error, data not properly interleaved");
+  GST_LOG_OBJECT (filter,
+      "processing incoming buffer of %d bytes and %d samples",
+      GST_BUFFER_SIZE (buf), num_int_samples);
 
   for (i = 0; i < filter->channels; ++i) {
     CS = 0.0;
@@ -227,12 +234,11 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
         break;
     }
     GST_LOG_OBJECT (filter,
-        "channel %d, cumulative sum %f, peak %f, over %d channels/%d samples",
+        "channel %d, cumulative sum %f, peak %f, over %d samples/%d channels",
         i, CS, filter->peak[i], num_int_samples, filter->channels);
     filter->CS[i] += CS;
 
   }
-  gst_pad_push (filter->srcpad, GST_DATA (buf));
 
   filter->num_samples += num_int_samples / filter->channels;
 
@@ -246,7 +252,7 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
     if (filter->peak[i] >= filter->decay_peak[i]) {
       filter->decay_peak[i] = filter->peak[i];
       filter->decay_peak_age[i] = 0;
-      GST_LOG_OBJECT (filter, "peak refreshed, not decaying");
+      GST_LOG_OBJECT (filter, "channel %d peak refreshed, not decaying", i);
     } else {
       /* make decay peak fall off if too old */
       if (filter->decay_peak_age[i] > filter->rate * filter->decay_peak_ttl) {
@@ -279,6 +285,8 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
       gdouble RMS, endtime;
       gdouble RMSdB, lastdB, decaydB;
 
+      GST_LOG_OBJECT (filter, "emitting, timestamp %" GST_TIME_FORMAT,
+          GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (buf)));
       endtime = (double) GST_BUFFER_TIMESTAMP (buf) / GST_SECOND
           + (double) num_int_samples / (filter->rate * filter->channels);
 
@@ -306,6 +314,8 @@ gst_level_fast_16bit_chain (gint16 * in, guint num, gint channels,
     }
     filter->num_samples = 0;
   }
+
+  gst_pad_push (filter->srcpad, GST_DATA (buf));
 }
 
 static void
