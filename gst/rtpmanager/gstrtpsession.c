@@ -1474,8 +1474,21 @@ gst_rtp_session_event_recv_rtp_src (GstPad * pad, GstEvent * event)
       break;
   }
 
-  if (forward)
-    ret = gst_pad_push_event (rtpsession->recv_rtp_sink, event);
+  if (forward) {
+    GstPad *recv_rtp_sink = NULL;
+    GST_RTP_SESSION_LOCK (rtpsession);
+    if (rtpsession->recv_rtp_sink)
+      recv_rtp_sink = gst_object_ref (rtpsession->recv_rtp_sink);
+    GST_RTP_SESSION_UNLOCK (rtpsession);
+
+    if (recv_rtp_sink) {
+      ret = gst_pad_push_event (recv_rtp_sink, event);
+      gst_object_unref (recv_rtp_sink);
+    } else
+      gst_event_unref (event);
+  } else {
+    gst_event_unref (event);
+  }
 
   gst_object_unref (rtpsession);
 
@@ -1743,8 +1756,10 @@ gst_rtp_session_event_send_rtp_sink (GstPad * pad, GstEvent * event)
           current_time);
       break;
     }
-    default:{
+    default:
+    {
       GstPad *send_rtp_src = NULL;
+
       GST_RTP_SESSION_LOCK (rtpsession);
       if (rtpsession->send_rtp_src)
         send_rtp_src = gst_object_ref (rtpsession->send_rtp_src);
@@ -2201,12 +2216,20 @@ gst_rtp_session_request_key_unit (RTPSession * sess,
     gboolean all_headers, gpointer user_data)
 {
   GstRtpSession *rtpsession = GST_RTP_SESSION (user_data);
-  GstEvent *event;
+  GstPad *send_rtp_sink = NULL;
 
-  event = gst_event_new_custom (GST_EVENT_CUSTOM_UPSTREAM,
-      gst_structure_new ("GstForceKeyUnit",
-          "all-headers", G_TYPE_BOOLEAN, all_headers, NULL));
-  gst_pad_push_event (rtpsession->send_rtp_sink, event);
+  GST_RTP_SESSION_LOCK (rtpsession);
+  if (rtpsession->send_rtp_sink)
+    send_rtp_sink = gst_object_ref (rtpsession->send_rtp_sink);
+  GST_RTP_SESSION_UNLOCK (rtpsession);
+
+  if (send_rtp_sink) {
+    gst_pad_push_event (send_rtp_sink,
+        gst_event_new_custom (GST_EVENT_CUSTOM_UPSTREAM,
+            gst_structure_new ("GstForceKeyUnit",
+                "all-headers", G_TYPE_BOOLEAN, all_headers, NULL)));
+    gst_object_unref (send_rtp_sink);
+  }
 }
 
 static GstClockTime
