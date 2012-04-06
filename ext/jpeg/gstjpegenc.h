@@ -1,5 +1,7 @@
 /* GStreamer
  * Copyright (C) <1999> Erik Walthinsen <omega@cse.ogi.edu>
+ * Copyright (C) 2012 Collabora Ltd.
+ *	Author : Edward Hervey <edward@collabora.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +26,7 @@
 
 #include <gst/gst.h>
 #include <gst/video/video.h>
+#include <gst/video/gstvideoencoder.h>
 /* this is a hack hack hack to get around jpeglib header bugs... */
 #ifdef HAVE_STDLIB_H
 # undef HAVE_STDLIB_H
@@ -50,19 +53,13 @@ typedef struct _GstJpegEncClass GstJpegEncClass;
 
 struct _GstJpegEnc
 {
-  GstElement element;
+  GstVideoEncoder encoder;
 
-  /* pads */
-  GstPad *sinkpad, *srcpad;
+  GstVideoCodecState *input_state;
+  GstVideoCodecFrame *current_frame;
 
-  /* stream/image properties */
-  GstVideoFormat format;
-  gint width;
-  gint height;
-  gint channels;
-  gint fps_num, fps_den;
-  gint par_num, par_den;
-  /* standard video_format indexed */
+  guint channels;
+
   gint stride[GST_JPEG_ENC_MAX_COMPONENT];
   gint offset[GST_JPEG_ENC_MAX_COMPONENT];
   gint inc[GST_JPEG_ENC_MAX_COMPONENT];
@@ -89,15 +86,12 @@ struct _GstJpegEnc
   gint smoothing;
   gint idct_method;
 
-  /* cached return state for any problems that may occur in callbacks */
-  GstFlowReturn last_ret;
-
   GstBuffer *output_buffer;
 };
 
 struct _GstJpegEncClass
 {
-  GstElementClass parent_class;
+  GstVideoEncoderClass parent_class;
 
   /* signals */
   void (*frame_encoded) (GstElement * element);

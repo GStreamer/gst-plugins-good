@@ -1,5 +1,7 @@
 /* GStreamer
  * Copyright (C) <1999> Erik Walthinsen <omega@cse.ogi.edu>
+ * Copyright (C) 2012 Collabora Ltd.
+ *	Author : Edward Hervey <edward@collabora.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,6 +27,7 @@
 #include <setjmp.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
+#include <gst/video/gstvideodecoder.h>
 #include <gst/base/gstadapter.h>
 
 /* this is a hack hack hack to get around jpeglib header bugs... */
@@ -64,49 +67,20 @@ struct GstJpegDecSourceMgr {
  * doesn't handle the N buffers in, 1 buffer out case,
  * but only the 1-in 1-out case */
 struct _GstJpegDec {
-  GstElement element;
-
-  /* pads */
-  GstPad  *sinkpad;
-  GstPad  *srcpad;
-
-  GstAdapter *adapter;
+  GstVideoDecoder decoder;
 
   guint8     *cur_buf;
 
-  /* TRUE if each input buffer contains a whole jpeg image */
-  gboolean packetized;
-
-  /* the (expected) timestamp of the next frame */
-  guint64  next_ts;
-
-  GstSegment segment;
-
-  /* TRUE if the next output buffer should have the DISCONT flag set */
-  gboolean discont;
-
-  /* QoS stuff *//* with LOCK */
-  gdouble proportion;
-  GstClockTime earliest_time;
-  GstClockTime qos_duration;
-
-  /* video state */
-  gint framerate_numerator;
-  gint framerate_denominator;
-
   /* negotiated state */
-  gint     caps_framerate_numerator;
-  gint     caps_framerate_denominator;
-  gint     caps_width;
-  gint     caps_height;
-  gint     outsize;
-  gint     clrspc;
+  GstVideoCodecState *input_state;
+  GstVideoCodecFrame *current_frame;
 
   gint     offset[3];
   gint     stride;
   gint     inc;
 
   /* parse state */
+  gboolean saw_header;
   gint     parse_offset;
   gint     parse_entropy_len;
   gint     parse_resync;
@@ -123,9 +97,6 @@ struct _GstJpegDec {
   /* number of errors since start or last successfully decoded image */
   guint     error_count;
 
-  /* number of successfully decoded images since start */
-  guint     good_count;
-
   struct jpeg_decompress_struct cinfo;
   struct GstJpegDecErrorMgr     jerr;
   struct GstJpegDecSourceMgr    jsrc;
@@ -138,7 +109,7 @@ struct _GstJpegDec {
 };
 
 struct _GstJpegDecClass {
-  GstElementClass  parent_class;
+  GstVideoDecoderClass decoder_class;
 };
 
 GType gst_jpeg_dec_get_type(void);
