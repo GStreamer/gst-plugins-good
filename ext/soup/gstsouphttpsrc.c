@@ -1423,10 +1423,25 @@ gst_soup_http_src_query (GstBaseSrc * bsrc, GstQuery * query)
 static gboolean
 gst_soup_http_src_set_location (GstSoupHTTPSrc * src, const gchar * uri)
 {
+  const char *alt_schemes[] = { "icy://", "icyx://" };
+  guint i;
+
   if (src->location) {
     g_free (src->location);
     src->location = NULL;
   }
+
+  if (uri == NULL)
+    return FALSE;
+
+  for (i = 0; i < G_N_ELEMENTS (alt_schemes); i++) {
+    if (g_str_has_prefix (uri, alt_schemes[i])) {
+      src->location =
+          g_strdup_printf ("http://%s", uri + strlen (alt_schemes[i]));
+      return TRUE;
+    }
+  }
+
   src->location = g_strdup (uri);
 
   return TRUE;
@@ -1460,7 +1475,8 @@ gst_soup_http_src_uri_get_type (void)
 static gchar **
 gst_soup_http_src_uri_get_protocols (void)
 {
-  static const gchar *protocols[] = { "http", "https", NULL };
+  static const gchar *protocols[] = { "http", "https", "icy", "icyx", NULL };
+
   return (gchar **) protocols;
 }
 
