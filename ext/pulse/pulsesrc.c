@@ -111,6 +111,8 @@ static GstStateChangeReturn gst_pulsesrc_change_state (GstElement *
 
 static void gst_pulsesrc_init_interfaces (GType type);
 
+static GstClockTime gst_pulsesrc_get_time (GstClock * clock, GstPulseSrc * src);
+
 #if (G_BYTE_ORDER == G_LITTLE_ENDIAN)
 # define ENDIANNESS   "LITTLE_ENDIAN, BIG_ENDIAN"
 #else
@@ -398,6 +400,14 @@ gst_pulsesrc_init (GstPulseSrc * pulsesrc, GstPulseSrcClass * klass)
   /* this should be the default but it isn't yet */
   gst_base_audio_src_set_slave_method (GST_BASE_AUDIO_SRC (pulsesrc),
       GST_BASE_AUDIO_SRC_SLAVE_SKEW);
+
+  // override with a custom clock
+  if (GST_BASE_AUDIO_SRC (pulsesrc)->clock) {
+    gst_object_unref (GST_BASE_AUDIO_SRC (pulsesrc)->clock);
+  }
+
+  GST_BASE_AUDIO_SRC (pulsesrc)->clock = gst_audio_clock_new ("GstPulseSrcClock",
+      (GstAudioClockGetTimeFunc) gst_pulsesrc_get_time, pulsesrc);
 }
 
 static void
@@ -1747,4 +1757,29 @@ mainloop_start_failed:
         ("pa_threaded_mainloop_start() failed"), (NULL));
     return GST_STATE_CHANGE_FAILURE;
   }
+}
+
+static GstClockTime
+gst_pulsesrc_get_time (GstClock * clock, GstPulseSrc * src)
+{
+  pa_usec_t time = 0;
+
+  pa_threaded_mainloop_lock (src->mainloop);
+
+  if (gst_pulsesrc_is_dead (src, TRUE)) {
+    goto unlock_and_out;
+  }
+
+  if (pa_stream_get_time (src->stream, &time) < 0) {
+    GST_DEBUG_OBJECT (src, "could not get time");
+    time = GST_CLOCK_TIME_NONE;
+  } else {
+    time *= 1000;
+  }
+
+
+ unlock_and_out:
+  pa_threaded_mainloop_unlock (src->mainloop);
+
+  return time;
 }
