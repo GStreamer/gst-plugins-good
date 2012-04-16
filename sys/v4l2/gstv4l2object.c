@@ -840,6 +840,8 @@ static const GstV4L2FormatDesc gst_v4l2_formats[] = {
   {V4L2_PIX_FMT_DV, TRUE},
   {V4L2_PIX_FMT_MPEG, FALSE},
 
+  {V4L2_PIX_FMT_H264, TRUE},
+
   /*  Vendor-specific formats   */
   {V4L2_PIX_FMT_WNVA, TRUE},
 
@@ -1154,6 +1156,9 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
 #endif
     case V4L2_PIX_FMT_JPEG:    /* JFIF JPEG */
       structure = gst_structure_new ("image/jpeg", NULL);
+      break;
+    case V4L2_PIX_FMT_H264:    /* H.264 */
+      structure = gst_structure_new ("video/x-h264", NULL);
       break;
     case V4L2_PIX_FMT_RGB332:
     case V4L2_PIX_FMT_RGB555:
@@ -1513,6 +1518,8 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
     fourcc = V4L2_PIX_FMT_DV;
   } else if (strcmp (mimetype, "image/jpeg") == 0) {
     fourcc = V4L2_PIX_FMT_JPEG;
+  } else if (strcmp (mimetype, "video/x-h264") == 0) {
+    fourcc = V4L2_PIX_FMT_H264;
 #ifdef V4L2_PIX_FMT_SBGGR8
   } else if (strcmp (mimetype, "video/x-raw-bayer") == 0) {
     fourcc = V4L2_PIX_FMT_SBGGR8;
