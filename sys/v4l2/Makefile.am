@@ -8,6 +8,23 @@ xv_source =
 xv_libs =
 endif
 
+glib_gen_prefix = __gst_v4l2
+glib_gen_basename = gstv4l2
+
+include $(top_srcdir)/common/gst-glib-gen.mak
+
+built_sources = gstv4l2-marshal.c
+built_headers = gstv4l2-marshal.h
+
+BUILT_SOURCES = $(built_sources) $(built_headers)
+
+CLEANFILES = $(BUILT_SOURCES)
+
+nodist_libgstvideo4linux2_la_SOURCES = \
+      $(built_sources)
+
+EXTRA_DIST = gstcv4l2-marshal.list
+
 libgstvideo4linux2_la_SOURCES = gstv4l2.c \
 				gstv4l2colorbalance.c \
 				gstv4l2object.c \
