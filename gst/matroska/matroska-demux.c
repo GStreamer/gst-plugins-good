@@ -2016,6 +2016,11 @@ gst_matroska_demux_handle_seek_event (GstMatroskaDemux * demux,
   GST_OBJECT_UNLOCK (demux);
 
   if (demux->streaming) {
+    GST_OBJECT_LOCK (demux);
+    /* now update the real segment info */
+    GST_DEBUG_OBJECT (demux, "Committing new seek segment");
+    memcpy (&demux->common.segment, &seeksegment, sizeof (GstSegment));
+    GST_OBJECT_UNLOCK (demux);
     /* need to seek to cluster start to pick up cluster time */
     /* upstream takes care of flushing and all that
      * ... and newsegment event handling takes care of the rest */
