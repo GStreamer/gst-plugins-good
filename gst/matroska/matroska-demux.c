@@ -3396,13 +3396,17 @@ gst_matroska_demux_parse_blockgroup_or_simpleblock (GstMatroskaDemux * demux,
       clace_time = MAX (lace_time, demux->stream_start_time);
       duration = demux->common.segment.duration;
       rate = demux->common.segment.rate;
-      /* we really want to set, don't care much about previous state */
-      gst_segment_init (&demux->common.segment, GST_FORMAT_TIME);
-      gst_segment_set_newsegment (&demux->common.segment, FALSE,
-          rate, GST_FORMAT_TIME, clace_time, GST_CLOCK_TIME_NONE,
-          clace_time - demux->stream_start_time);
-      gst_segment_set_duration (&demux->common.segment, GST_FORMAT_TIME,
-          duration);
+      if (demux->common.segment.start == 0) {
+        /* set segment fields only if they weren't already set by seek handling
+         * code
+         */
+        gst_segment_init (&demux->common.segment, GST_FORMAT_TIME);
+        gst_segment_set_newsegment (&demux->common.segment, FALSE,
+            rate, GST_FORMAT_TIME, clace_time, GST_CLOCK_TIME_NONE,
+            clace_time - demux->stream_start_time);
+        gst_segment_set_duration (&demux->common.segment, GST_FORMAT_TIME,
+            duration);
+      }
       /* now convey our segment notion downstream */
       gst_matroska_demux_send_event (demux, gst_event_new_new_segment (FALSE,
               demux->common.segment.rate, demux->common.segment.format,
