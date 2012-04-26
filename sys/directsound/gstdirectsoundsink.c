@@ -53,6 +53,7 @@
 #endif
 
 #include "gstdirectsoundsink.h"
+#include <gst/audio/gstaudioiec61937.h>
 
 #include <math.h>
 
@@ -74,6 +75,8 @@ static void gst_directsound_sink_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 
 static GstCaps *gst_directsound_sink_getcaps (GstBaseSink * bsink);
+static GstBuffer *gst_directsound_sink_payload (GstBaseAudioSink * sink,
+    GstBuffer * buf);
 static gboolean gst_directsound_sink_prepare (GstAudioSink * asink,
     GstRingBufferSpec * spec);
 static gboolean gst_directsound_sink_unprepare (GstAudioSink * asink);
@@ -86,6 +89,7 @@ static guint gst_directsound_sink_delay (GstAudioSink * asink);
 static void gst_directsound_sink_reset (GstAudioSink * asink);
 static GstCaps *gst_directsound_probe_supported_formats (GstDirectSoundSink *
     dsoundsink, const GstCaps * template_caps);
+static gboolean gst_directsound_sink_acceptcaps (GstPad * pad, GstCaps * caps);
 
 /* interfaces */
 static void gst_directsound_sink_interfaces_init (GType type);
@@ -108,7 +112,7 @@ static GstStaticPadTemplate directsoundsink_sink_factory =
         "width = (int) 8, "
         "depth = (int) 8, "
         "rate = (int) [ 1, MAX ], " "channels = (int) [ 1, 2 ];"
-        "audio/x-iec958"));
+        "audio/x-ac3, framed = (boolean) true;"));
 
 enum
 {
@@ -291,6 +295,9 @@ gst_directsound_sink_class_init (GstDirectSoundSinkClass * klass)
   gstbasesink_class->get_caps =
       GST_DEBUG_FUNCPTR (gst_directsound_sink_getcaps);
 
+  gstbaseaudiosink_class->payload =
+      GST_DEBUG_FUNCPTR (gst_directsound_sink_payload);
+
   gstaudiosink_class->prepare =
       GST_DEBUG_FUNCPTR (gst_directsound_sink_prepare);
   gstaudiosink_class->unprepare =
@@ -331,6 +338,9 @@ gst_directsound_sink_init (GstDirectSoundSink * dsoundsink,
   dsoundsink->volume = 100;
   dsoundsink->dsound_lock = g_mutex_new ();
   dsoundsink->first_buffer_after_reset = FALSE;
+
+  gst_pad_set_acceptcaps_function (GST_BASE_SINK (dsoundsink)->sinkpad,
+      GST_DEBUG_FUNCPTR (gst_directsound_sink_acceptcaps));
 }
 
 static void
@@ -407,6 +417,56 @@ gst_directsound_sink_getcaps (GstBaseSink * bsink)
 }
 
 static gboolean
+gst_directsound_sink_acceptcaps (GstPad * pad, GstCaps * caps)
+{
+  GstDirectSoundSink *dsink =
+      GST_DIRECTSOUND_SINK (gst_pad_get_parent_element (pad));
+  GstRingBuffer *rbuf = GST_BASE_AUDIO_SINK (dsink)->ringbuffer;
+  GstCaps *pad_caps;
+  GstStructure *st;
+  gboolean ret = FALSE;
+
+  GstRingBufferSpec spec = { 0 };
+
+  pad_caps = gst_pad_get_caps_reffed (pad);
+  if (pad_caps) {
+    ret = gst_caps_can_intersect (pad_caps, caps);
+    gst_caps_unref (pad_caps);
+    if (!ret)
+      goto done;
+  }
+
+  /* If we've not got fixed caps, creating a stream might fail, so let's just
+   * return from here with default acceptcaps behaviour */
+  if (!gst_caps_is_fixed (caps))
+    goto done;
+
+  if (!gst_ring_buffer_parse_caps (&rbuf->spec, caps))
+    goto done;
+
+  /* Make sure input is framed (one frame per buffer) and can be payloaded */
+  switch (rbuf->spec.type) {
+    case GST_BUFTYPE_AC3:
+    {
+      gboolean framed = FALSE, parsed = FALSE;
+      st = gst_caps_get_structure (caps, 0);
+
+      gst_structure_get_boolean (st, "framed", &framed);
+      gst_structure_get_boolean (st, "parsed", &parsed);
+      if ((!framed && !parsed) || gst_audio_iec61937_frame_size (&spec) <= 0)
+        goto done;
+    }
+    default:{
+    }
+  }
+  ret = TRUE;
+
+done:
+  gst_object_unref (dsink);
+  return ret;
+}
+
+static gboolean
 gst_directsound_sink_open (GstAudioSink * asink)
 {
   GstDirectSoundSink *dsoundsink = GST_DIRECTSOUND_SINK (asink);
@@ -431,6 +491,15 @@ gst_directsound_sink_open (GstAudioSink * asink)
   return TRUE;
 }
 
+static boolean
+gst_directsound_sink_is_spdif_format (GstDirectSoundSink * dsoundsink)
+{
+  GstBufferFormatType type;
+
+  type = GST_BASE_AUDIO_SINK (dsoundsink)->ringbuffer->spec.type;
+  return type == GST_BUFTYPE_AC3;
+}
+
 static gboolean
 gst_directsound_sink_prepare (GstAudioSink * asink, GstRingBufferSpec * spec)
 {
@@ -445,7 +514,7 @@ gst_directsound_sink_prepare (GstAudioSink * asink, GstRingBufferSpec * spec)
 
   /* fill the WAVEFORMATEX structure with spec params */
   memset (&wfx, 0, sizeof (wfx));
-  if (spec->format != GST_IEC958) {
+  if (!gst_directsound_sink_is_spdif_format (dsoundsink)) {
     wfx.cbSize = sizeof (wfx);
     wfx.wFormatTag = WAVE_FORMAT_PCM;
     wfx.nChannels = spec->channels;
@@ -498,7 +567,7 @@ gst_directsound_sink_prepare (GstAudioSink * asink, GstRingBufferSpec * spec)
   memset (&descSecondary, 0, sizeof (DSBUFFERDESC));
   descSecondary.dwSize = sizeof (DSBUFFERDESC);
   descSecondary.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
-  if (spec->format != GST_IEC958)
+  if (!gst_directsound_sink_is_spdif_format (dsoundsink))
     descSecondary.dwFlags |= DSBCAPS_CTRLVOLUME;
 
   descSecondary.dwBufferBytes = dsoundsink->buffer_size;
@@ -562,10 +631,6 @@ gst_directsound_sink_write (GstAudioSink * asink, gpointer data, guint length)
   DWORD dwCurrentPlayCursor;
 
   dsoundsink = GST_DIRECTSOUND_SINK (asink);
-
-  /* Fix endianness */
-  if (dsoundsink->buffer_format == GST_IEC958)
-    _swab (data, data, length);
 
   GST_DSOUND_LOCK (dsoundsink);
 
@@ -766,8 +831,7 @@ gst_directsound_probe_supported_formats (GstDirectSoundSink * dsoundsink,
     GST_INFO_OBJECT (dsoundsink, "AC3 passthrough not supported "
         "(IDirectSound_CreateSoundBuffer returned: %s)\n",
         DXGetErrorString9 (hRes));
-    caps =
-        gst_caps_subtract (caps, gst_caps_new_simple ("audio/x-iec958", NULL));
+    caps = gst_caps_subtract (caps, gst_caps_new_simple ("audio/x-ac3", NULL));
   } else {
     GST_INFO_OBJECT (dsoundsink, "AC3 passthrough supported");
     hRes = IDirectSoundBuffer_Release (dsoundsink->pDSBSecondary);
@@ -778,8 +842,41 @@ gst_directsound_probe_supported_formats (GstDirectSoundSink * dsoundsink,
     }
   }
 #else
-  caps = gst_caps_subtract (caps, gst_caps_new_simple ("audio/x-iec958", NULL));
+  caps = gst_caps_subtract (caps, gst_caps_new_simple ("audio/x-ac3", NULL));
 #endif
 
   return caps;
+}
+
+static GstBuffer *
+gst_directsound_sink_payload (GstBaseAudioSink * sink, GstBuffer * buf)
+{
+  switch (sink->ringbuffer->spec.type) {
+    case GST_BUFTYPE_AC3:
+    {
+      gint framesize = gst_audio_iec61937_frame_size (&sink->ringbuffer->spec);
+      GstBuffer *out;
+
+      if (framesize <= 0)
+        return NULL;
+
+      out = gst_buffer_new_and_alloc (framesize);
+
+      if (!gst_audio_iec61937_payload (GST_BUFFER_DATA (buf),
+              GST_BUFFER_SIZE (buf), GST_BUFFER_DATA (out),
+              GST_BUFFER_SIZE (out), &sink->ringbuffer->spec)) {
+        gst_buffer_unref (out);
+        return NULL;
+      }
+
+      gst_buffer_copy_metadata (out, buf, GST_BUFFER_COPY_ALL);
+      /* Fix endianness */
+      _swab ((gchar *) GST_BUFFER_DATA (buf), (gchar *) GST_BUFFER_DATA (buf),
+          GST_BUFFER_SIZE (buf));
+      return out;
+    }
+
+    default:
+      return gst_buffer_ref (buf);
+  }
 }
