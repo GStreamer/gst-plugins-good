@@ -1201,7 +1201,7 @@ static GstFlowReturn
 gst_interleave_collected (GstCollectPads2 * pads, GstInterleave * self)
 {
   guint size;
-  GstBuffer *outbuf;
+  GstBuffer *outbuf = NULL;
   GstFlowReturn ret = GST_FLOW_OK;
   GSList *collected;
   guint nsamples;
@@ -1209,12 +1209,14 @@ gst_interleave_collected (GstCollectPads2 * pads, GstInterleave * self)
   gboolean empty = TRUE;
   gint width = self->width / 8;
 
+  size = gst_collect_pads2_available (pads);
+  if (size == 0)
+    goto eos;
+
   g_return_val_if_fail (self->func != NULL, GST_FLOW_NOT_NEGOTIATED);
   g_return_val_if_fail (self->width > 0, GST_FLOW_NOT_NEGOTIATED);
   g_return_val_if_fail (self->channels > 0, GST_FLOW_NOT_NEGOTIATED);
   g_return_val_if_fail (self->rate > 0, GST_FLOW_NOT_NEGOTIATED);
-
-  size = gst_collect_pads2_available (pads);
 
   g_return_val_if_fail (size % width == 0, GST_FLOW_ERROR);
 
@@ -1305,7 +1307,8 @@ gst_interleave_collected (GstCollectPads2 * pads, GstInterleave * self)
 eos:
   {
     GST_DEBUG_OBJECT (self, "no data available, must be EOS");
-    gst_buffer_unref (outbuf);
+    if (outbuf)
+      gst_buffer_unref (outbuf);
     gst_pad_push_event (self->src, gst_event_new_eos ());
     return GST_FLOW_UNEXPECTED;
   }
