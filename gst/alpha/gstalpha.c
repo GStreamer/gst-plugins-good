@@ -2356,6 +2356,12 @@ gst_alpha_init_params (GstAlpha * alpha)
   gfloat y;
   const gint *matrix;
 
+  if (alpha->in_format == GST_VIDEO_FORMAT_UNKNOWN
+      || alpha->out_format == GST_VIDEO_FORMAT_UNKNOWN) {
+    GST_DEBUG_OBJECT (alpha, "video formats not set yet");
+    return;
+  }
+
   /* RGB->RGB: convert to SDTV YUV, chroma keying, convert back
    * YUV->RGB: chroma keying, convert to RGB
    * RGB->YUV: convert to YUV, chroma keying
