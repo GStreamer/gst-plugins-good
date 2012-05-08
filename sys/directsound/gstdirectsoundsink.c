@@ -541,7 +541,7 @@ gst_directsound_sink_prepare (GstAudioSink * asink, GstRingBufferSpec * spec)
     wfx.cbSize = 0;
     wfx.wFormatTag = WAVE_FORMAT_DOLBY_AC3_SPDIF;
     wfx.nChannels = 2;
-    wfx.nSamplesPerSec = spec->rate;
+    wfx.nSamplesPerSec = 48000;
     wfx.wBitsPerSample = 16;
     wfx.nBlockAlign = wfx.wBitsPerSample / 8 * wfx.nChannels;
     wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
