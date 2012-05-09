@@ -289,13 +289,14 @@ gst_rnd_buffer_size_src_event (GstPad * pad, GstEvent * event)
   if ((flags & GST_SEEK_FLAG_FLUSH)) {
     gst_pad_push_event (self->srcpad, gst_event_new_flush_start ());
     gst_pad_push_event (self->sinkpad, gst_event_new_flush_start ());
-    gst_pad_push_event (self->srcpad, gst_event_new_flush_stop ());
-    gst_pad_push_event (self->sinkpad, gst_event_new_flush_stop ());
   } else {
     gst_pad_pause_task (self->sinkpad);
   }
 
   GST_PAD_STREAM_LOCK (self->sinkpad);
+
+  gst_pad_push_event (self->srcpad, gst_event_new_flush_stop ());
+  gst_pad_push_event (self->sinkpad, gst_event_new_flush_stop ());
 
   GST_INFO_OBJECT (pad, "seeking to offset %" G_GINT64_FORMAT, start);
 
