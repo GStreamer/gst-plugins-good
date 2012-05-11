@@ -23,7 +23,7 @@ CLEANFILES = $(BUILT_SOURCES)
 nodist_libgstvideo4linux2_la_SOURCES = \
       $(built_sources)
 
-EXTRA_DIST = gstcv4l2-marshal.list
+EXTRA_DIST = gstv4l2-marshal.list
 
 libgstvideo4linux2_la_SOURCES = gstv4l2.c \
 				gstv4l2colorbalance.c \
