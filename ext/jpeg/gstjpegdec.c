@@ -380,6 +380,11 @@ gst_jpeg_dec_init (GstJpegDec * dec, GstJpegDecClass * class)
   gst_element_add_pad (GST_ELEMENT (dec), dec->srcpad);
 #endif
 
+  /* By default, handle non-packetized input. If set_format gets called, we'll
+   * figure out a better way to handle this
+   */
+  gst_video_decoder_set_packetized (GST_VIDEO_DECODER (dec), FALSE);
+
   /* setup jpeglib */
   memset (&dec->cinfo, 0, sizeof (dec->cinfo));
   memset (&dec->jerr, 0, sizeof (dec->jerr));
