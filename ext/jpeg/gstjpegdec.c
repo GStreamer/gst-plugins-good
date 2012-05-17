@@ -463,6 +463,10 @@ gst_jpeg_dec_parse (GstVideoDecoder * bdec, GstVideoCodecFrame * frame,
   if (at_eos) {
     GST_DEBUG ("Flushing all data out");
     toadd = size;
+
+    /* If we have leftover data, throw it away */
+    if (!dec->saw_header)
+      goto drop_frame;
     goto have_full_frame;
   }
 
@@ -480,6 +484,7 @@ gst_jpeg_dec_parse (GstVideoDecoder * bdec, GstVideoCodecFrame * frame,
   if (ret) {
     gst_adapter_flush (adapter, ret);
     size -= ret;
+    dec->saw_header = TRUE;
   }
 
   while (1) {
@@ -517,6 +522,7 @@ gst_jpeg_dec_parse (GstVideoDecoder * bdec, GstVideoCodecFrame * frame,
     if (value == 0xd9) {
       GST_DEBUG ("0x%08x: EOI marker", offset + 2);
       /* clear parse state */
+      dec->saw_header = FALSE;
       dec->parse_resync = FALSE;
       dec->parse_offset = 0;
       toadd = offset + 4;
@@ -609,6 +615,9 @@ have_full_frame:
   if (toadd)
     gst_video_decoder_add_to_frame (bdec, toadd);
   return gst_video_decoder_have_frame (bdec);
+
+drop_frame:
+  return GST_VIDEO_DECODER_FLOW_DROPPED;
 }
 
 
@@ -1402,6 +1411,7 @@ gst_jpeg_dec_reset (GstVideoDecoder * bdec, gboolean hard)
   dec->parse_offset = 0;
   dec->parse_entropy_len = 0;
   dec->parse_resync = FALSE;
+  dec->saw_header = FALSE;
 
   return TRUE;
 }
