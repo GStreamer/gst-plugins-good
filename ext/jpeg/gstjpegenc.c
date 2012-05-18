@@ -238,20 +238,6 @@ gst_jpegenc_term_destination (j_compress_ptr cinfo)
 static void
 gst_jpegenc_init (GstJpegEnc * jpegenc, GstJpegEncClass * class)
 {
-#if 0
-  /* create the sink and src pads */
-  jpegenc->sinkpad =
-      gst_pad_new_from_static_template (&gst_jpegenc_sink_pad_template, "sink");
-  gst_pad_set_chain_function (jpegenc->sinkpad,
-      GST_DEBUG_FUNCPTR (gst_jpegenc_chain));
-  gst_element_add_pad (GST_ELEMENT (jpegenc), jpegenc->sinkpad);
-
-  jpegenc->srcpad =
-      gst_pad_new_from_static_template (&gst_jpegenc_src_pad_template, "src");
-  gst_pad_use_fixed_caps (jpegenc->srcpad);
-  gst_element_add_pad (GST_ELEMENT (jpegenc), jpegenc->srcpad);
-#endif
-
   /* setup jpeglib */
   memset (&jpegenc->cinfo, 0, sizeof (jpegenc->cinfo));
   memset (&jpegenc->jerr, 0, sizeof (jpegenc->jerr));
