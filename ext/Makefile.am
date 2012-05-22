@@ -70,12 +70,6 @@ else
 LIBDV_DIR =
 endif
 
-# if USE_LIBMNG
-# LIBMNG_DIR = libmng
-# else
-LIBMNG_DIR =
-# endif
-
 if USE_LIBPNG
 LIBPNG_DIR = libpng
 else
