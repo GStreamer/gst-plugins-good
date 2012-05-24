@@ -1914,6 +1914,7 @@ gst_rtspsrc_perform_seek (GstRTSPSrc * src, GstEvent * event)
     gst_rtspsrc_get_position (src);
     gst_rtspsrc_pause (src, FALSE, FALSE);
   }
+  src->skip = skip;
 
   gst_rtspsrc_do_seek (src, &seeksegment);
 
@@ -1974,7 +1975,6 @@ gst_rtspsrc_perform_seek (GstRTSPSrc * src, GstEvent * event)
     GstRTSPStream *stream = (GstRTSPStream *) walk->data;
     stream->discont = TRUE;
   }
-  src->skip = skip;
 
   GST_RTSP_STREAM_UNLOCK (src);
 
