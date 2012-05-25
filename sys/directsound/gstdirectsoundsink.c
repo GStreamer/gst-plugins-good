@@ -90,6 +90,7 @@ static void gst_directsound_sink_reset (GstAudioSink * asink);
 static GstCaps *gst_directsound_probe_supported_formats (GstDirectSoundSink *
     dsoundsink, const GstCaps * template_caps);
 static gboolean gst_directsound_sink_acceptcaps (GstPad * pad, GstCaps * caps);
+static boolean gst_directsound_sink_is_spdif_format (GstDirectSoundSink * dsoundsink);
 
 /* interfaces */
 static void gst_directsound_sink_interfaces_init (GType type);
@@ -447,19 +448,14 @@ gst_directsound_sink_acceptcaps (GstPad * pad, GstCaps * caps)
     goto done;
 
   /* Make sure input is framed (one frame per buffer) and can be payloaded */
-  switch (spec.type) {
-    case GST_BUFTYPE_AC3:
-    {
-      gboolean framed = FALSE, parsed = FALSE;
-      st = gst_caps_get_structure (caps, 0);
+  if (gst_directsound_sink_is_spdif_format(dsink)) {
+    gboolean framed = FALSE, parsed = FALSE;
+    st = gst_caps_get_structure (caps, 0);
 
-      gst_structure_get_boolean (st, "framed", &framed);
-      gst_structure_get_boolean (st, "parsed", &parsed);
-      if ((!framed && !parsed) || gst_audio_iec61937_frame_size (&spec) <= 0)
-        goto done;
-    }
-    default:{
-    }
+    gst_structure_get_boolean (st, "framed", &framed);
+    gst_structure_get_boolean (st, "parsed", &parsed);
+    if ((!framed && !parsed) || gst_audio_iec61937_frame_size (&spec) <= 0)
+      goto done;
   }
   ret = TRUE;
 
@@ -853,32 +849,28 @@ gst_directsound_probe_supported_formats (GstDirectSoundSink * dsoundsink,
 static GstBuffer *
 gst_directsound_sink_payload (GstBaseAudioSink * sink, GstBuffer * buf)
 {
-  switch (sink->ringbuffer->spec.type) {
-    case GST_BUFTYPE_AC3:
-    {
-      gint framesize = gst_audio_iec61937_frame_size (&sink->ringbuffer->spec);
-      GstBuffer *out;
+  if (gst_directsound_sink_is_spdif_format((GstDirectSoundSink*) sink)) {
+    gint framesize = gst_audio_iec61937_frame_size (&sink->ringbuffer->spec);
+    GstBuffer *out;
 
-      if (framesize <= 0)
-        return NULL;
+    if (framesize <= 0)
+      return NULL;
 
-      out = gst_buffer_new_and_alloc (framesize);
+    out = gst_buffer_new_and_alloc (framesize);
 
-      if (!gst_audio_iec61937_payload (GST_BUFFER_DATA (buf),
-              GST_BUFFER_SIZE (buf), GST_BUFFER_DATA (out),
-              GST_BUFFER_SIZE (out), &sink->ringbuffer->spec)) {
-        gst_buffer_unref (out);
-        return NULL;
-      }
-
-      gst_buffer_copy_metadata (out, buf, GST_BUFFER_COPY_ALL);
-      /* Fix endianness */
-      _swab ((gchar *) GST_BUFFER_DATA (buf), (gchar *) GST_BUFFER_DATA (buf),
-          GST_BUFFER_SIZE (buf));
-      return out;
+    if (!gst_audio_iec61937_payload (GST_BUFFER_DATA (buf),
+            GST_BUFFER_SIZE (buf), GST_BUFFER_DATA (out),
+            GST_BUFFER_SIZE (out), &sink->ringbuffer->spec)) {
+      gst_buffer_unref (out);
+      return NULL;
     }
 
-    default:
-      return gst_buffer_ref (buf);
+    gst_buffer_copy_metadata (out, buf, GST_BUFFER_COPY_ALL);
+    /* Fix endianness */
+    _swab ((gchar *) GST_BUFFER_DATA (buf), (gchar *) GST_BUFFER_DATA (buf),
+        GST_BUFFER_SIZE (buf));
+    return out;
+  } else {
+    return gst_buffer_ref (buf);
   }
 }
