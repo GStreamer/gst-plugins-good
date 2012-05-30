@@ -303,7 +303,7 @@ AG_GST_SET_ERROR_CFLAGS($FATAL_WARNINGS, [
       -Wmissing-declarations -Wmissing-prototypes -Wredundant-decls
       -Wwrite-strings -Wold-style-definition -Waggregate-return
       -Winit-self -Wmissing-include-dirs -Waddress -Wno-multichar
-      -Wnested-externs $NO_WARNINGS])
+      -Wnested-externs])
 
 dnl define an ERROR_CXXFLAGS Makefile variable
 AG_GST_SET_ERROR_CXXFLAGS($FATAL_WARNINGS, [
@@ -316,7 +316,7 @@ AG_GST_SET_ERROR_OBJCFLAGS($FATAL_WARNINGS, [
       -Wmissing-declarations -Wmissing-prototypes -Wredundant-decls
       -Wwrite-strings -Wold-style-definition
       -Winit-self -Wmissing-include-dirs -Wno-multichar
-      -Wnested-externs $NO_WARNINGS])
+      -Wnested-externs])
 
 dnl define correct level for debugging messages
 AG_GST_SET_LEVEL_DEFAULT($GST_GIT)
