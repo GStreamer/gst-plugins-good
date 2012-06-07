@@ -475,5 +475,14 @@ gst_pngdec_stop (GstVideoDecoder * decoder)
   pngdec->rowbytes = 0;
   pngdec->buffer_out = NULL;
 
+  if (pngdec->input_state) {
+    gst_video_codec_state_unref (pngdec->input_state);
+    pngdec->input_state = NULL;
+  }
+  if (pngdec->output_state) {
+    gst_video_codec_state_unref (pngdec->output_state);
+    pngdec->output_state = NULL;
+  }
+
   return TRUE;
 }
