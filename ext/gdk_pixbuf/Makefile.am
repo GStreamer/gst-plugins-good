@@ -17,7 +17,7 @@ libgstgdkpixbuf_la_LIBTOOLFLAGS = --tag=disable-static
 
 noinst_HEADERS = \
 	gstgdkpixbuf.h \
-	gstgdkpixbufoverlay.c \
+	gstgdkpixbufoverlay.h \
 	gstgdkpixbufsink.h \
 	pixbufscale.h \
 	gstgdkanimation.h
