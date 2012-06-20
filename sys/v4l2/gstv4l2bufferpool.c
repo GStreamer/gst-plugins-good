@@ -438,6 +438,7 @@ buffer_new_failed:
 void
 gst_v4l2_buffer_pool_destroy (GstV4l2BufferPool * pool)
 {
+  struct v4l2_requestbuffers breq;
   gint n;
 
   GST_V4L2_BUFFER_POOL_LOCK (pool);
@@ -462,6 +463,19 @@ gst_v4l2_buffer_pool_destroy (GstV4l2BufferPool * pool)
     if (buf)
       /* we own the ref if the buffer is in pool->buffers; drop it. */
       gst_buffer_unref (buf);
+  }
+
+  /* Free the buffers from the kernel too */
+  GST_DEBUG_OBJECT (pool->v4l2elem, "Freeing the buffers from the kernel");
+
+  memset (&breq, 0, sizeof (struct v4l2_requestbuffers));
+  breq.type = pool->type;
+  breq.count = 0;
+  breq.memory = V4L2_MEMORY_MMAP;
+
+  if (v4l2_ioctl (pool->video_fd, VIDIOC_REQBUFS, &breq) < 0) {
+    /* Not much else we can do here */
+    GST_WARNING_OBJECT (pool->v4l2elem, "Error freeing the kernel buffers");
   }
 
   gst_mini_object_unref (GST_MINI_OBJECT (pool));
