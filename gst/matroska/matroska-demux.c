@@ -1379,6 +1379,7 @@ gst_matroska_demux_query (GstMatroskaDemux * demux, GstPad * pad,
 
       gst_query_parse_position (query, &format, NULL);
 
+      res = TRUE;
       if (format == GST_FORMAT_TIME) {
         GST_OBJECT_LOCK (demux);
         if (context)
@@ -1399,9 +1400,9 @@ gst_matroska_demux_query (GstMatroskaDemux * demux, GstPad * pad,
       } else {
         GST_DEBUG_OBJECT (demux,
             "only position query in TIME and DEFAULT format is supported");
+        res = FALSE;
       }
 
-      res = TRUE;
       break;
     }
     case GST_QUERY_DURATION:
@@ -1410,6 +1411,7 @@ gst_matroska_demux_query (GstMatroskaDemux * demux, GstPad * pad,
 
       gst_query_parse_duration (query, &format, NULL);
 
+      res = TRUE;
       if (format == GST_FORMAT_TIME) {
         GST_OBJECT_LOCK (demux);
         gst_query_set_duration (query, GST_FORMAT_TIME,
@@ -1424,9 +1426,8 @@ gst_matroska_demux_query (GstMatroskaDemux * demux, GstPad * pad,
       } else {
         GST_DEBUG_OBJECT (demux,
             "only duration query in TIME and DEFAULT format is supported");
+        res = FALSE;
       }
-
-      res = TRUE;
       break;
     }
 
@@ -1981,10 +1982,10 @@ gst_matroska_demux_handle_seek_event (GstMatroskaDemux * demux,
   gst_segment_set_duration (&seeksegment, GST_FORMAT_TIME,
       demux->common.segment.duration);
 
-  flush = !!(flags & GST_SEEK_FLAG_FLUSH);
-  keyunit = !!(flags & GST_SEEK_FLAG_KEY_UNIT);
-  after = !!(flags & GST_SEEK_FLAG_SNAP_AFTER);
-  before = !!(flags & GST_SEEK_FLAG_SNAP_BEFORE);
+  flush = ! !(flags & GST_SEEK_FLAG_FLUSH);
+  keyunit = ! !(flags & GST_SEEK_FLAG_KEY_UNIT);
+  after = ! !(flags & GST_SEEK_FLAG_SNAP_AFTER);
+  before = ! !(flags & GST_SEEK_FLAG_SNAP_BEFORE);
 
   /* always do full update if flushing,
    * otherwise problems might arise downstream with missing keyframes etc */
