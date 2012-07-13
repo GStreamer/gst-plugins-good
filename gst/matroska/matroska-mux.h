@@ -110,7 +110,6 @@ typedef struct _GstMatroskaMux {
   guint64        segment_pos,
                  seekhead_pos,
                  cues_pos,
-                 chapters_pos,
                  tags_pos,
                  info_pos,
                  tracks_pos,
@@ -126,6 +125,7 @@ typedef struct _GstMatroskaMux {
 
   /* GstForceKeyUnit event */
   GstEvent       *force_key_unit_event;
+
 } GstMatroskaMux;
 
 typedef struct _GstMatroskaMuxClass {
