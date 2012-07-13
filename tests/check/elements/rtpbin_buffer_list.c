@@ -195,9 +195,8 @@ _check_header (GstBuffer * buffer, guint index)
    * most likely be changed in gstrtpbin.
    */
   fail_unless ((data = GST_BUFFER_DATA (buffer)) != NULL);
-  fail_unless_equals_uint64 (*(guint64 *) data, *(guint64 *) rtp_header[index]);
-  fail_unless (*(guint16 *) (data + 12) ==
-      *(guint16 *) (rtp_header[index] + 12));
+  fail_unless (memcmp (data, rtp_header[index], 8) == 0);
+  fail_unless (memcmp (data + 12, rtp_header[index] + 12, 2) == 0);
 }
 
 
