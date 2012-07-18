@@ -740,7 +740,7 @@ gst_soup_http_src_got_headers_cb (SoupMessage * msg, GstSoupHTTPSrc * src)
 
   if (src->automatic_redirect && SOUP_STATUS_IS_REDIRECTION (msg->status_code)) {
     GST_DEBUG_OBJECT (src, "%u redirect to \"%s\"", msg->status_code,
-        soup_message_headers_get (msg->response_headers, "Location"));
+        soup_message_headers_get_one (msg->response_headers, "Location"));
     return;
   }
 
@@ -773,7 +773,7 @@ gst_soup_http_src_got_headers_cb (SoupMessage * msg, GstSoupHTTPSrc * src)
   tag_list = gst_tag_list_new ();
 
   if ((value =
-          soup_message_headers_get (msg->response_headers,
+          soup_message_headers_get_one (msg->response_headers,
               "icy-metaint")) != NULL) {
     gint icy_metaint = atoi (value);
 
@@ -825,7 +825,7 @@ gst_soup_http_src_got_headers_cb (SoupMessage * msg, GstSoupHTTPSrc * src)
     g_hash_table_destroy (params);
 
   if ((value =
-          soup_message_headers_get (msg->response_headers,
+          soup_message_headers_get_one (msg->response_headers,
               "icy-name")) != NULL) {
     g_free (src->iradio_name);
     src->iradio_name = gst_soup_http_src_unicodify (value);
@@ -836,7 +836,7 @@ gst_soup_http_src_got_headers_cb (SoupMessage * msg, GstSoupHTTPSrc * src)
     }
   }
   if ((value =
-          soup_message_headers_get (msg->response_headers,
+          soup_message_headers_get_one (msg->response_headers,
               "icy-genre")) != NULL) {
     g_free (src->iradio_genre);
     src->iradio_genre = gst_soup_http_src_unicodify (value);
@@ -846,7 +846,7 @@ gst_soup_http_src_got_headers_cb (SoupMessage * msg, GstSoupHTTPSrc * src)
           src->iradio_genre, NULL);
     }
   }
-  if ((value = soup_message_headers_get (msg->response_headers, "icy-url"))
+  if ((value = soup_message_headers_get_one (msg->response_headers, "icy-url"))
       != NULL) {
     g_free (src->iradio_url);
     src->iradio_url = gst_soup_http_src_unicodify (value);
