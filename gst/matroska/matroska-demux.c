@@ -1969,8 +1969,8 @@ gst_matroska_demux_handle_seek_event (GstMatroskaDemux * demux,
   after = ! !(flags & GST_SEEK_FLAG_SNAP_AFTER);
   before = ! !(flags & GST_SEEK_FLAG_SNAP_BEFORE);
 
-  /* always do full update if flushing,
-   * otherwise problems might arise downstream with missing keyframes etc */
+  /* always do full update if flushing, otherwise problems might arise
+   * downstream with missing keyframes etc. */
   update = update || flush;
 
   GST_DEBUG_OBJECT (demux, "New segment %" GST_SEGMENT_FORMAT, &seeksegment);
@@ -2104,10 +2104,24 @@ exit:
   GST_OBJECT_LOCK (demux);
   if (demux->new_segment)
     gst_event_unref (demux->new_segment);
-  demux->new_segment = gst_event_new_new_segment_full (!update,
-      demux->common.segment.rate, demux->common.segment.applied_rate,
-      demux->common.segment.format, demux->common.segment.start,
-      demux->common.segment.stop, demux->common.segment.time);
+
+  if (update) {
+    if (demux->common.segment.rate > 0.0)
+      demux->new_segment = gst_event_new_new_segment_full (FALSE,
+          demux->common.segment.rate, demux->common.segment.applied_rate,
+          demux->common.segment.format, demux->common.segment.last_stop,
+          demux->common.segment.stop, demux->common.segment.last_stop);
+    else
+      demux->new_segment = gst_event_new_new_segment_full (FALSE,
+          demux->common.segment.rate, demux->common.segment.applied_rate,
+          demux->common.segment.format, demux->common.segment.start,
+          demux->common.segment.last_stop, demux->common.segment.time);
+  } else {
+    demux->new_segment = gst_event_new_new_segment_full (TRUE,
+        demux->common.segment.rate, demux->common.segment.applied_rate,
+        demux->common.segment.format, demux->common.segment.start,
+        demux->common.segment.stop, demux->common.segment.time);
+  }
   GST_OBJECT_UNLOCK (demux);
 
   /* restart our task since it might have been stopped when we did the
