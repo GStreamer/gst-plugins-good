@@ -868,21 +868,17 @@ gst_interleave_sink_event (GstPad * pad, GstEvent * event)
 
   switch (GST_EVENT_TYPE (event)) {
     case GST_EVENT_FLUSH_STOP:
-      /* mark a pending new segment. This event is synchronized
-       * with the streaming thread so we can safely update the
-       * variable without races. It's somewhat weird because we
-       * assume the collectpads forwarded the FLUSH_STOP past us
-       * and downstream (using our source pad, the bastard!).
-       */
       GST_OBJECT_LOCK (self);
       gst_event_replace (&self->pending_segment, NULL);
       GST_OBJECT_UNLOCK (self);
       break;
     case GST_EVENT_NEWSEGMENT:
+    {
       GST_OBJECT_LOCK (self);
       gst_event_replace (&self->pending_segment, event);
       GST_OBJECT_UNLOCK (self);
       break;
+    }
     default:
       break;
   }
@@ -1271,11 +1267,51 @@ gst_interleave_collected (GstCollectPads2 * pads, GstInterleave * self)
   GST_OBJECT_LOCK (self);
   if (self->pending_segment) {
     GstEvent *event;
+    gboolean update;
+    gdouble rate;
+    gdouble applied_rate;
+    GstFormat format;
+    gint64 start, stop;
+    gint64 position;
 
     event = self->pending_segment;
     self->pending_segment = NULL;
     GST_OBJECT_UNLOCK (self);
 
+    /* convert the input segment to time now */
+    gst_event_parse_new_segment_full (event, &update, &rate, &applied_rate,
+        &format, &start, &stop, &position);
+
+    if (format != GST_FORMAT_TIME) {
+      gst_event_unref (event);
+
+      /* not time, convert */
+      switch (format) {
+        case GST_FORMAT_BYTES:
+          start *= width;
+          if (stop != -1)
+            stop *= width;
+          if (position != -1)
+            position *= width;
+          /* fallthrough for the samples case */
+        case GST_FORMAT_DEFAULT:
+          start = gst_util_uint64_scale_int (start, GST_SECOND, self->rate);
+          if (stop != -1)
+            stop = gst_util_uint64_scale_int (stop, GST_SECOND, self->rate);
+          if (position != -1)
+            position =
+                gst_util_uint64_scale_int (position, GST_SECOND, self->rate);
+          break;
+        default:
+          GST_WARNING ("can't convert segment values");
+          start = 0;
+          stop = -1;
+          position = 0;
+          break;
+      }
+      event = gst_event_new_new_segment_full (update, rate, applied_rate,
+          GST_FORMAT_TIME, start, stop, position);
+    }
     gst_pad_push_event (self->src, event);
 
     GST_OBJECT_LOCK (self);
