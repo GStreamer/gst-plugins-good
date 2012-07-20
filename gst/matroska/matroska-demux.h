@@ -73,6 +73,8 @@ typedef struct _GstMatroskaDemux {
   GstClockTime             last_stop_end;
   GstClockTime             stream_start_time;
 
+  /* Stop time for reverse playback */
+  GstClockTime             to_time;
   GstEvent                *close_segment;
   GstEvent                *new_segment;
 
