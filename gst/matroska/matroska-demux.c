@@ -1933,8 +1933,7 @@ gst_matroska_demux_handle_seek_event (GstMatroskaDemux * demux,
    * we might be playing a file that's still being recorded
    * so, invalidate our current duration, which is only a moving target,
    * and should not be used to clamp anything */
-  if (!demux->streaming && !demux->common.index &&
-      demux->invalid_duration) {
+  if (!demux->streaming && !demux->common.index && demux->invalid_duration) {
     gst_segment_set_duration (&seeksegment, GST_FORMAT_TIME,
         GST_CLOCK_TIME_NONE);
   }
@@ -1943,13 +1942,20 @@ gst_matroska_demux_handle_seek_event (GstMatroskaDemux * demux,
     GST_DEBUG_OBJECT (demux, "configuring seek");
     gst_segment_set_seek (&seeksegment, rate, format, flags,
         cur_type, cur, stop_type, stop, &update);
-    /* compensate for clip start time */
+    /* compensate for clip start time, but only for SET seeks,
+     * otherwise it is already part of the segments */
     if (GST_CLOCK_TIME_IS_VALID (demux->stream_start_time)) {
-      seeksegment.last_stop += demux->stream_start_time;
-      seeksegment.start += demux->stream_start_time;
-      if (GST_CLOCK_TIME_IS_VALID (seeksegment.stop))
+      if (cur_type == GST_SEEK_TYPE_SET) {
+        if (rate > 0.0)
+          seeksegment.last_stop += demux->stream_start_time;
+        seeksegment.start += demux->stream_start_time;
+      }
+      if (stop_type == GST_SEEK_TYPE_SET
+          && GST_CLOCK_TIME_IS_VALID (seeksegment.stop)) {
+        if (rate < 0.0)
+          seeksegment.last_stop += demux->stream_start_time;
         seeksegment.stop += demux->stream_start_time;
-      /* note that time should stay at indicated position */
+      }
     }
   }
 
