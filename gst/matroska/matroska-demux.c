@@ -447,6 +447,8 @@ gst_matroska_demux_reset (GstElement * element)
   demux->index_offset = 0;
   demux->seekable = FALSE;
   demux->need_newsegment = FALSE;
+  demux->requested_seek_time = GST_CLOCK_TIME_NONE;
+  demux->seek_offset = -1;
   demux->building_index = FALSE;
   if (demux->seek_event) {
     gst_event_unref (demux->seek_event);
@@ -2073,9 +2075,10 @@ finish:
 
   if (demux->streaming) {
     GST_OBJECT_LOCK (demux);
-    /* now update the real segment info */
-    GST_DEBUG_OBJECT (demux, "Committing new seek segment");
-    memcpy (&demux->common.segment, &seeksegment, sizeof (GstSegment));
+    /* track real position we should start at */
+    GST_DEBUG_OBJECT (demux, "storing segment start");
+    demux->requested_seek_time = seeksegment.last_stop;
+    demux->seek_offset = entry->pos + demux->common.ebml_segment_start;
     GST_OBJECT_UNLOCK (demux);
     /* need to seek to cluster start to pick up cluster time */
     /* upstream takes care of flushing and all that
@@ -3393,17 +3396,19 @@ gst_matroska_demux_parse_blockgroup_or_simpleblock (GstMatroskaDemux * demux,
       clace_time = MAX (lace_time, demux->stream_start_time);
       duration = demux->common.segment.duration;
       rate = demux->common.segment.rate;
-      if (demux->common.segment.start == 0) {
-        /* set segment fields only if they weren't already set by seek handling
-         * code
-         */
-        gst_segment_init (&demux->common.segment, GST_FORMAT_TIME);
-        gst_segment_set_newsegment (&demux->common.segment, FALSE,
-            rate, GST_FORMAT_TIME, clace_time, GST_CLOCK_TIME_NONE,
-            clace_time - demux->stream_start_time);
-        gst_segment_set_duration (&demux->common.segment, GST_FORMAT_TIME,
-            duration);
+      if (GST_CLOCK_TIME_IS_VALID (demux->common.segment.last_stop) &&
+          demux->common.segment.last_stop != 0) {
+        GST_DEBUG_OBJECT (demux,
+            "using stored seek position %" GST_TIME_FORMAT,
+            GST_TIME_ARGS (demux->common.segment.last_stop));
+        clace_time = demux->common.segment.last_stop + demux->stream_start_time;
       }
+      gst_segment_init (&demux->common.segment, GST_FORMAT_TIME);
+      gst_segment_set_newsegment (&demux->common.segment, FALSE,
+          rate, GST_FORMAT_TIME, clace_time, GST_CLOCK_TIME_NONE,
+          clace_time - demux->stream_start_time);
+      gst_segment_set_duration (&demux->common.segment, GST_FORMAT_TIME,
+          duration);
       /* now convey our segment notion downstream */
       gst_matroska_demux_send_event (demux, gst_event_new_new_segment (FALSE,
               demux->common.segment.rate, demux->common.segment.format,
@@ -4713,6 +4718,15 @@ gst_matroska_demux_handle_sink_event (GstPad * pad, GstEvent * event)
       demux->need_newsegment = TRUE;
       /* but keep some of the upstream segment */
       demux->common.segment.rate = rate;
+      /* also check if need to keep some of the requested seek position */
+      if (demux->seek_offset == start) {
+        GST_DEBUG_OBJECT (demux, "position matches requested seek");
+        demux->common.segment.last_stop = demux->requested_seek_time;
+      } else {
+        GST_DEBUG_OBJECT (demux, "unexpected segment position");
+      }
+      demux->requested_seek_time = GST_CLOCK_TIME_NONE;
+      demux->seek_offset = -1;
       GST_OBJECT_UNLOCK (demux);
     exit:
       /* chain will send initial newsegment after pads have been added,
