@@ -4509,6 +4509,11 @@ gst_avi_demux_invert (GstAviStream * stream, GstBuffer * buf)
   if (stream->strh->type != GST_RIFF_FCC_vids)
     return buf;
 
+  if (stream->strf.vids == NULL) {
+    GST_WARNING ("Failed to retrieve vids for stream");
+    return buf;
+  }
+
   fourcc = (stream->strf.vids->compression) ?
       stream->strf.vids->compression : stream->strh->fcc_handler;
   if (!gst_avi_demux_is_uncompressed (fourcc)) {
@@ -4518,11 +4523,6 @@ gst_avi_demux_invert (GstAviStream * stream, GstBuffer * buf)
   s = gst_caps_get_structure (GST_PAD_CAPS (stream->pad), 0);
   if (!gst_structure_get_int (s, "bpp", &bpp)) {
     GST_WARNING ("Failed to retrieve depth from caps");
-    return buf;
-  }
-
-  if (stream->strf.vids == NULL) {
-    GST_WARNING ("Failed to retrieve vids for stream");
     return buf;
   }
 
