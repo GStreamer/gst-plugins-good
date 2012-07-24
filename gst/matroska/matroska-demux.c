@@ -2019,18 +2019,8 @@ gst_matroska_demux_handle_seek_event (GstMatroskaDemux * demux,
     goto next;
   }
 
-  if (demux->streaming) {
-    GST_OBJECT_LOCK (demux);
-    /* now update the real segment info */
-    GST_DEBUG_OBJECT (demux, "Committing new seek segment");
-    memcpy (&demux->common.segment, &seeksegment, sizeof (GstSegment));
-    GST_OBJECT_UNLOCK (demux);
-    /* need to seek to cluster start to pick up cluster time */
-    /* upstream takes care of flushing and all that
-     * ... and newsegment event handling takes care of the rest */
-    return perform_seek_to_offset (demux, rate,
-        entry->pos + demux->common.ebml_segment_start);
-  }
+  if (demux->streaming)
+    goto finish;
 
 next:
   if (flush) {
@@ -2071,6 +2061,7 @@ next:
     }
   }
 
+finish:
   if (keyunit) {
     GST_DEBUG_OBJECT (demux, "seek to key unit, adjusting segment start from %"
         GST_TIME_FORMAT " to %" GST_TIME_FORMAT,
@@ -2078,6 +2069,19 @@ next:
     seeksegment.start = MAX (entry->time, demux->stream_start_time);
     seeksegment.last_stop = seeksegment.start;
     seeksegment.time = seeksegment.start - demux->stream_start_time;
+  }
+
+  if (demux->streaming) {
+    GST_OBJECT_LOCK (demux);
+    /* now update the real segment info */
+    GST_DEBUG_OBJECT (demux, "Committing new seek segment");
+    memcpy (&demux->common.segment, &seeksegment, sizeof (GstSegment));
+    GST_OBJECT_UNLOCK (demux);
+    /* need to seek to cluster start to pick up cluster time */
+    /* upstream takes care of flushing and all that
+     * ... and newsegment event handling takes care of the rest */
+    return perform_seek_to_offset (demux, rate,
+        entry->pos + demux->common.ebml_segment_start);
   }
 
 exit:
