@@ -807,6 +807,7 @@ gst_directsound_probe_supported_formats (GstDirectSoundSink * dsoundsink,
   WAVEFORMATEX wfx;
   GstCaps *caps;
   GstCaps *tmp, *tmp2;
+  LPDIRECTSOUNDBUFFER tmpBuffer;
 
   caps = gst_caps_copy (template_caps);
 
@@ -833,7 +834,7 @@ gst_directsound_probe_supported_formats (GstDirectSoundSink * dsoundsink,
   descSecondary.lpwfxFormat = &wfx;
 
   hRes = IDirectSound_CreateSoundBuffer (dsoundsink->pDS, &descSecondary,
-      &dsoundsink->pDSBSecondary, NULL);
+      &tmpBuffer, NULL);
   if (FAILED (hRes)) {
     GST_INFO_OBJECT (dsoundsink, "AC3 passthrough not supported "
         "(IDirectSound_CreateSoundBuffer returned: %s)\n",
@@ -850,8 +851,7 @@ gst_directsound_probe_supported_formats (GstDirectSoundSink * dsoundsink,
     caps = tmp2;
   } else {
     GST_INFO_OBJECT (dsoundsink, "AC3 passthrough supported");
-    hRes = IDirectSoundBuffer_Release (dsoundsink->pDSBSecondary);
-    dsoundsink->pDSBSecondary = NULL;
+    hRes = IDirectSoundBuffer_Release (tmpBuffer);
     if (FAILED (hRes)) {
       GST_DEBUG_OBJECT (dsoundsink,
           "(IDirectSoundBuffer_Release returned: %s)\n",
