@@ -7199,9 +7199,8 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
               waveheader += 8;
               headerlen -= 8;
 
-              headerbuf = gst_buffer_new ();
-              GST_BUFFER_DATA (headerbuf) = (guint8 *) waveheader;
-              GST_BUFFER_SIZE (headerbuf) = headerlen;
+              headerbuf = gst_buffer_new_and_alloc (headerlen);
+              memcpy (GST_BUFFER_DATA (headerbuf), waveheader, headerlen);
 
               if (gst_riff_parse_strf_auds (GST_ELEMENT_CAST (qtdemux),
                       headerbuf, &header, &extra)) {
