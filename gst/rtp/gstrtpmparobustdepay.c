@@ -523,6 +523,7 @@ gst_rtp_mpa_robust_depay_push_mp3_frames (GstRtpMPARobustDepay * rtpmpadepay)
       gst_byte_writer_set_pos (rtpmpadepay->mp3_frame, 0);
       /* bytewriter corresponds to head frame,
        * i.e. the header and the side info must match */
+      g_assert (4 + head->side_info <= head->size);
       gst_byte_writer_put_data (rtpmpadepay->mp3_frame,
           GST_BUFFER_DATA (head->buffer), 4 + head->side_info);
     }
@@ -582,6 +583,8 @@ gst_rtp_mpa_robust_depay_push_mp3_frames (GstRtpMPARobustDepay * rtpmpadepay)
         /* position and append */
         GST_LOG_OBJECT (rtpmpadepay, "adding to current MP3 frame");
         gst_byte_writer_set_pos (rtpmpadepay->mp3_frame, tpos);
+        av -= (tpos - pos);
+        g_assert (GST_BUFFER_SIZE (buf) >= 4 + frame->side_info);
         av = MIN (av, GST_BUFFER_SIZE (buf) - 4 - frame->side_info);
         gst_byte_writer_put_data (rtpmpadepay->mp3_frame,
             GST_BUFFER_DATA (buf) + 4 + frame->side_info, av);
