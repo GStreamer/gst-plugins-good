@@ -1230,9 +1230,9 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
         case V4L2_PIX_FMT_BGR32:
           bpp = depth = 32;
           endianness = G_BIG_ENDIAN;
-          r_mask = 0x000000ff;
-          g_mask = 0x0000ff00;
-          b_mask = 0x00ff0000;
+          r_mask = 0x0000ff00;
+          g_mask = 0x00ff0000;
+          b_mask = 0xff000000;
           break;
         default:
           g_assert_not_reached ();
@@ -1515,7 +1515,7 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
         fourcc = (r_mask == 0xFF) ? V4L2_PIX_FMT_BGR24 : V4L2_PIX_FMT_RGB24;
         break;
       case 32:
-        fourcc = (r_mask == 0xFF) ? V4L2_PIX_FMT_BGR32 : V4L2_PIX_FMT_RGB32;
+        fourcc = (r_mask == 0xFF00) ? V4L2_PIX_FMT_BGR32 : V4L2_PIX_FMT_RGB32;
         break;
     }
   } else if (strcmp (mimetype, "video/x-dv") == 0) {
