@@ -844,6 +844,7 @@ gst_v4l2sink_show_frame (GstBaseSink * bsink, GstBuffer * buf)
   GST_DEBUG_OBJECT (v4l2sink, "render buffer: %p", buf);
 
   if (!GST_IS_V4L2_BUFFER (buf)) {
+    GstCaps *caps;
     GstFlowReturn ret;
 
     /* special case check for sub-buffers:  In certain cases, places like
@@ -872,9 +873,12 @@ gst_v4l2sink_show_frame (GstBaseSink * bsink, GstBuffer * buf)
     GST_DEBUG_OBJECT (v4l2sink, "slow-path.. I got a %s so I need to memcpy",
         g_type_name (G_OBJECT_TYPE (buf)));
 
+    caps = GST_BUFFER_CAPS (buf);
+    if (!caps)
+      caps = v4l2sink->current_caps;
+
     ret = gst_v4l2sink_buffer_alloc (bsink,
-        GST_BUFFER_OFFSET (buf), GST_BUFFER_SIZE (buf), GST_BUFFER_CAPS (buf),
-        &newbuf);
+        GST_BUFFER_OFFSET (buf), GST_BUFFER_SIZE (buf), caps, &newbuf);
 
     if (GST_FLOW_OK != ret) {
       GST_DEBUG_OBJECT (v4l2sink,
