@@ -71,9 +71,16 @@ _do_init (GType object_type)
     NULL,                       /* interface_finalize */
     NULL                        /* interface_data */
   };
+  const GInterfaceInfo preset_interface_info = {
+    NULL,                       /* interface_init */
+    NULL,                       /* interface_finalize */
+    NULL                        /* interface_data */
+  };
 
   g_type_add_interface_static (object_type, GST_TYPE_CHILD_PROXY,
       &child_proxy_interface_info);
+  g_type_add_interface_static (object_type, GST_TYPE_PRESET,
+      &preset_interface_info);
 }
 
 GST_BOILERPLATE_FULL (GstIirEqualizer, gst_iir_equalizer,
