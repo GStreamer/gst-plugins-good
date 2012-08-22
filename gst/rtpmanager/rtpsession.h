@@ -80,7 +80,7 @@ typedef GstFlowReturn (*RTPSessionSendRTP) (RTPSession *sess, RTPSource *src, gp
  *
  * Returns: a #GstFlowReturn.
  */
-typedef GstFlowReturn (*RTPSessionSendRTCP) (RTPSession *sess, RTPSource *src, GstBuffer *buffer, 
+typedef GstFlowReturn (*RTPSessionSendRTCP) (RTPSession *sess, RTPSource *src, GstBuffer *buffer,
     gboolean eos, gpointer user_data);
 
 /**
@@ -114,7 +114,7 @@ typedef gint (*RTPSessionClockRate) (RTPSession *sess, guint8 payload, gpointer 
  * @sess: an #RTPSession
  * @user_data: user data specified when registering
  *
- * This callback will be called when @sess needs to cancel the current timeout. 
+ * This callback will be called when @sess needs to cancel the current timeout.
  * The currently running timeout should be canceled and a new reporting interval
  * should be requested from @sess.
  */
@@ -189,6 +189,8 @@ struct _RTPSession {
 
   guint         header_len;
   guint         mtu;
+
+  guint         probation;
 
   /* bandwidths */
   gboolean     recalc_bandwidth;

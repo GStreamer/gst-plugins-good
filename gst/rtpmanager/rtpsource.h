@@ -71,7 +71,7 @@ typedef struct _RTPSourceClass RTPSourceClass;
  *
  * Returns: a #GstFlowReturn.
  */
-typedef GstFlowReturn (*RTPSourcePushRTP) (RTPSource *src, GstBuffer *buffer, 
+typedef GstFlowReturn (*RTPSourcePushRTP) (RTPSource *src, GstBuffer *buffer,
 	gpointer user_data);
 
 /**
@@ -126,7 +126,8 @@ struct _RTPSource {
   /*< private >*/
   guint32       ssrc;
 
-  gint          probation;
+  guint         probation;
+  guint         curr_probation;
   gboolean      validated;
   gboolean      internal;
   gboolean      is_csrc;

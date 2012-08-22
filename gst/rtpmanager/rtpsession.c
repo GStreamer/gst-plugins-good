@@ -67,6 +67,7 @@ enum
 #define DEFAULT_RTCP_MIN_INTERVAL    (RTP_STATS_MIN_INTERVAL * GST_SECOND)
 #define DEFAULT_RTCP_FEEDBACK_RETENTION_WINDOW (2 * GST_SECOND)
 #define DEFAULT_RTCP_IMMEDIATE_FEEDBACK_THRESHOLD (3)
+#define DEFAULT_PROBATION            RTP_DEFAULT_PROBATION
 
 enum
 {
@@ -86,6 +87,7 @@ enum
   PROP_RTCP_MIN_INTERVAL,
   PROP_RTCP_FEEDBACK_RETENTION_WINDOW,
   PROP_RTCP_IMMEDIATE_FEEDBACK_THRESHOLD,
+  PROP_PROBATION,
   PROP_LAST
 };
 
@@ -509,6 +511,12 @@ rtp_session_class_init (RTPSessionClass * klass)
           0, G_MAXUINT, DEFAULT_RTCP_IMMEDIATE_FEEDBACK_THRESHOLD,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class, PROP_PROBATION,
+      g_param_spec_uint ("probation", "Number of probations",
+          "Consecutive packet sequence numbers to accept the source",
+          0, G_MAXUINT, DEFAULT_PROBATION,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   klass->get_source_by_ssrc =
       GST_DEBUG_FUNCPTR (rtp_session_get_source_by_ssrc);
   klass->on_sending_rtcp = GST_DEBUG_FUNCPTR (rtp_session_on_sending_rtcp);
@@ -558,6 +566,8 @@ rtp_session_init (RTPSession * sess)
   /* default UDP header length */
   sess->header_len = 28;
   sess->mtu = DEFAULT_RTCP_MTU;
+
+  sess->probation = DEFAULT_PROBATION;
 
   /* some default SDES entries */
 
@@ -686,6 +696,10 @@ rtp_session_set_property (GObject * object, guint prop_id,
     case PROP_RTCP_IMMEDIATE_FEEDBACK_THRESHOLD:
       sess->rtcp_immediate_feedback_threshold = g_value_get_uint (value);
       break;
+    case PROP_PROBATION:
+      sess->probation = g_value_get_uint (value);
+      g_object_set_property (G_OBJECT (sess->source), "probation", value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -742,6 +756,10 @@ rtp_session_get_property (GObject * object, guint prop_id,
       break;
     case PROP_RTCP_IMMEDIATE_FEEDBACK_THRESHOLD:
       g_value_set_uint (value, sess->rtcp_immediate_feedback_threshold);
+      break;
+    case PROP_PROBATION:
+      g_value_set_uint (value, sess->probation);
+      g_object_get_property (G_OBJECT (sess->source), "probation", value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1409,9 +1427,9 @@ obtain_source (RTPSession * sess, guint32 ssrc, gboolean * created,
      * packets of an SSRC, on the other hand, is a strong indication that we
      * are dealing with a valid source. */
     if (rtp)
-      source->probation = RTP_DEFAULT_PROBATION;
+      g_object_set (source, "probation", sess->probation, NULL);
     else
-      source->probation = 0;
+      g_object_set (source, "probation", 0, NULL);
 
     /* store from address, if any */
     if (arrival->have_address) {
