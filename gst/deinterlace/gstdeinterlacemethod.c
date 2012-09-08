@@ -108,6 +108,7 @@ gst_deinterlace_method_setup_impl (GstDeinterlaceMethod * self,
     GstVideoFormat format, gint width, gint height)
 {
   gint i;
+  gint n_components;
   GstDeinterlaceMethodClass *klass = GST_DEINTERLACE_METHOD_GET_CLASS (self);
 
   self->format = format;
@@ -119,7 +120,8 @@ gst_deinterlace_method_setup_impl (GstDeinterlaceMethod * self,
   if (format == GST_VIDEO_FORMAT_UNKNOWN)
     return;
 
-  for (i = 0; i < 4; i++) {
+  n_components = 3 + gst_video_format_has_alpha (format);
+  for (i = 0; i < n_components; i++) {
     self->width[i] = gst_video_format_get_component_width (format, i, width);
     self->height[i] = gst_video_format_get_component_height (format, i, height);
     self->offset[i] =
