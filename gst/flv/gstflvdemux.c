@@ -321,7 +321,7 @@ gst_flv_demux_parse_metadata_item (GstFlvDemux * demux, GstByteReader * reader,
   GST_DEBUG_OBJECT (demux, "tag name %s, tag type %d", tag_name, tag_type);
 
   switch (tag_type) {
-    case 0:                    // Double
+    case 0:                    /* Double */
     {                           /* Use a union to read the uint64 and then as a double */
       gdouble d = 0;
 
@@ -353,7 +353,7 @@ gst_flv_demux_parse_metadata_item (GstFlvDemux * demux, GstByteReader * reader,
 
       break;
     }
-    case 1:                    // Boolean
+    case 1:                    /* Boolean */
     {
       guint8 b = 0;
 
@@ -366,7 +366,7 @@ gst_flv_demux_parse_metadata_item (GstFlvDemux * demux, GstByteReader * reader,
 
       break;
     }
-    case 2:                    // String
+    case 2:                    /* String */
     {
       gchar *s = NULL;
 
@@ -404,7 +404,7 @@ gst_flv_demux_parse_metadata_item (GstFlvDemux * demux, GstByteReader * reader,
 
       break;
     }
-    case 3:                    // Object
+    case 3:                    /* Object */
     {
       gboolean end_of_object_marker = FALSE;
 
@@ -420,7 +420,7 @@ gst_flv_demux_parse_metadata_item (GstFlvDemux * demux, GstByteReader * reader,
 
       break;
     }
-    case 8:                    // ECMA array
+    case 8:                    /* ECMA array */
     {
       guint32 nb_elems = 0;
       gboolean end_of_object_marker = FALSE;
@@ -443,7 +443,7 @@ gst_flv_demux_parse_metadata_item (GstFlvDemux * demux, GstByteReader * reader,
 
       break;
     }
-    case 9:                    // End marker
+    case 9:                    /* End marker */
     {
       GST_DEBUG_OBJECT (demux, "end marker ?");
       if (tag_name[0] == '\0') {
@@ -455,7 +455,7 @@ gst_flv_demux_parse_metadata_item (GstFlvDemux * demux, GstByteReader * reader,
 
       break;
     }
-    case 10:                   // Array
+    case 10:                   /* Array */
     {
       guint32 nb_elems = 0;
 
@@ -508,7 +508,7 @@ gst_flv_demux_parse_metadata_item (GstFlvDemux * demux, GstByteReader * reader,
 
       break;
     }
-    case 11:                   // Date
+    case 11:                   /* Date */
     {
       gdouble d = 0;
       gint16 i = 0;
