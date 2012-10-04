@@ -87,6 +87,8 @@ static GstStaticPadTemplate gst_video_balance_src_template =
         GST_VIDEO_CAPS_YUV ("YVYU") ";"
         GST_VIDEO_CAPS_YUV ("I420") ";"
         GST_VIDEO_CAPS_YUV ("YV12") ";"
+        GST_VIDEO_CAPS_YUV ("NV12") ";"
+        GST_VIDEO_CAPS_YUV ("NV21") ";"
         GST_VIDEO_CAPS_YUV ("IYUV") ";" GST_VIDEO_CAPS_YUV ("Y41B")
     )
     );
@@ -108,6 +110,8 @@ static GstStaticPadTemplate gst_video_balance_sink_template =
         GST_VIDEO_CAPS_YUV ("YVYU") ";"
         GST_VIDEO_CAPS_YUV ("I420") ";"
         GST_VIDEO_CAPS_YUV ("YV12") ";"
+        GST_VIDEO_CAPS_YUV ("NV12") ";"
+        GST_VIDEO_CAPS_YUV ("NV21") ";"
         GST_VIDEO_CAPS_YUV ("IYUV") ";" GST_VIDEO_CAPS_YUV ("Y41B")
     )
     );
@@ -266,7 +270,69 @@ gst_video_balance_planar_yuv (GstVideoBalance * videobalance, guint8 * data)
 }
 
 static void
-gst_video_balance_packed_yuv (GstVideoBalance * videobalance, guint8 * data)
+gst_video_balance_semiplanar_yuv (GstVideoBalance * videobalance,
+    guint8 *data)
+{
+  gint x, y;
+  guint8 *ydata;
+  guint8 *uvdata;
+  gint ystride, uvstride;
+  gint upos, vpos;
+  GstVideoFormat format;
+  gint width, height;
+  gint width2, height2;
+  guint8 *tabley = videobalance->tabley;
+  guint8 **tableu = videobalance->tableu;
+  guint8 **tablev = videobalance->tablev;
+
+  format = videobalance->format;
+  width = videobalance->width;
+  height = videobalance->height;
+
+  ydata =
+      data + gst_video_format_get_component_offset (format, 0, width, height);
+  ystride = gst_video_format_get_row_stride (format, 0, width);
+
+  for (y = 0; y < height; y++) {
+    guint8 *yptr;
+
+    yptr = ydata + y * ystride;
+    for (x = 0; x < width; x++) {
+      *yptr = tabley[*yptr];
+      yptr++;
+    }
+  }
+
+  width2 = gst_video_format_get_component_width (format, 1, width);
+  height2 = gst_video_format_get_component_height (format, 1, height);
+
+  uvdata =
+      data + gst_video_format_get_component_offset (format, (format == GST_VIDEO_FORMAT_NV12) ? 1 : 2, width, height);
+  uvstride = gst_video_format_get_row_stride (format, 1, width);
+
+  upos = format == GST_VIDEO_FORMAT_NV12 ? 0 : 1;
+  vpos = format == GST_VIDEO_FORMAT_NV12 ? 1 : 0;
+
+  for (y = 0; y < height2; y++) {
+    guint8 *uvptr;
+    guint8 u1, v1;
+
+    uvptr = uvdata + y * uvstride;
+
+    for (x = 0; x < width2; x++) {
+      u1 = uvptr[upos];
+      v1 = uvptr[vpos];
+
+      uvptr[upos] = tableu[u1][v1];
+      uvptr[vpos] = tablev[u1][v1];
+      uvptr += 2;
+    }
+  }
+}
+
+static void
+gst_video_balance_packed_yuv (GstVideoBalance * videobalance,
+    guint8 *data)
 {
   gint x, y;
   guint8 *ydata;
@@ -442,6 +508,10 @@ gst_video_balance_set_caps (GstBaseTransform * base, GstCaps * incaps,
     case GST_VIDEO_FORMAT_AYUV:
     case GST_VIDEO_FORMAT_YVYU:
       videobalance->process = gst_video_balance_packed_yuv;
+      break;
+    case GST_VIDEO_FORMAT_NV12:
+    case GST_VIDEO_FORMAT_NV21:
+      videobalance->process = gst_video_balance_semiplanar_yuv;
       break;
     case GST_VIDEO_FORMAT_ARGB:
     case GST_VIDEO_FORMAT_ABGR:
