@@ -979,7 +979,7 @@ gst_multiudpsink_init_send (GstMultiUDPSink * sink)
      * maximum of around 100K. Also a minimum of 128 bytes is required on
      * Linux. */
     ret =
-        setsockopt (sink->sockfd, SOL_SOCKET, SO_SNDBUF, (void *) &sndsize,
+        setsockopt (sink->sock, SOL_SOCKET, SO_SNDBUF, (void *) &sndsize,
         len);
     if (ret != 0) {
       GST_ELEMENT_WARNING (sink, RESOURCE, SETTINGS, (NULL),
@@ -992,7 +992,7 @@ gst_multiudpsink_init_send (GstMultiUDPSink * sink)
    * value we set because the kernel allocates extra memory for metadata.
    * The default on Linux is about 100K (which is about 50K without metadata) */
   ret =
-      getsockopt (sink->sockfd, SOL_SOCKET, SO_SNDBUF, (void *) &sndsize, &len);
+      getsockopt (sink->sock, SOL_SOCKET, SO_SNDBUF, (void *) &sndsize, &len);
   if (ret == 0)
     GST_DEBUG_OBJECT (sink, "have udp buffer of %d bytes", sndsize);
   else
