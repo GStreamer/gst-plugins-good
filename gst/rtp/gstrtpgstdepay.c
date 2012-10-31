@@ -236,6 +236,8 @@ gst_rtp_gst_depay_process (GstBaseRTPDepayload * depayload, GstBuffer * buf)
       data = GST_BUFFER_DATA (outbuf);
       size = GST_BUFFER_SIZE (outbuf);
 
+      GST_DEBUG_OBJECT (rtpgstdepay, "buffer size %u", size);
+
       /* start reading the length, we need this to skip to the data later */
       csize = offset = 0;
       do {
@@ -245,6 +247,8 @@ gst_rtp_gst_depay_process (GstBaseRTPDepayload * depayload, GstBuffer * buf)
         csize = (csize << 7) | (b & 0x7f);
       } while (b & 0x80);
 
+      /* we have read csize, reduce remaining buffer size */
+      size -= offset;
       if (size < csize)
         goto too_small;
 
@@ -259,6 +263,8 @@ gst_rtp_gst_depay_process (GstBaseRTPDepayload * depayload, GstBuffer * buf)
       GST_DEBUG_OBJECT (rtpgstdepay,
           "inline caps %u, length %u, %" GST_PTR_FORMAT, CV, csize, outcaps);
 
+      GST_DEBUG_OBJECT (rtpgstdepay, "sub buffer: offset %u, size %u", offset,
+          size);
       /* create real data buffer when needed */
       if (size)
         subbuf = gst_buffer_create_sub (outbuf, offset, size);
