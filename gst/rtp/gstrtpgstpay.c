@@ -34,25 +34,29 @@ GST_DEBUG_CATEGORY_STATIC (gst_rtp_pay_debug);
  *  0                   1                   2                   3
  *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |C| CV  |D|X|Y|Z|                  MBZ                          |
+ * |C| CV  |D|X|Y|Z|     ETYPE     |  MBZ                          |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |                          Frag_offset                          |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
- * C: caps inlined flag 
+ * C: caps inlined flag
  *   When C set, first part of payload contains caps definition. Caps definition
  *   starts with variable-length length prefix and then a string of that length.
  *   the length is encoded in big endian 7 bit chunks, the top 1 bit of a byte
  *   is the continuation marker and the 7 next bits the data. A continuation
- *   marker of 1 means that the next byte contains more data. 
+ *   marker of 1 means that the next byte contains more data.
  *
  * CV: caps version, 0 = caps from SDP, 1 - 7 inlined caps
  * D: delta unit buffer
  * X: media 1 flag
  * Y: media 2 flag
  * Z: media 3 flag
- *
- *
+ * ETYPE: type of event. Payload contains the event, prefixed with a
+ *        variable length field.
+ *   0 = NO event
+ *   1 = GST_EVENT_TAG
+ *   2 = GST_EVENT_CUSTOM_DOWNSTREAM
+ *   3 = GST_EVENT_CUSTOM_BOTH
  */
 
 static GstStaticPadTemplate gst_rtp_gst_pay_sink_template =
@@ -77,6 +81,7 @@ static gboolean gst_rtp_gst_pay_setcaps (GstBaseRTPPayload * payload,
     GstCaps * caps);
 static GstFlowReturn gst_rtp_gst_pay_handle_buffer (GstBaseRTPPayload * payload,
     GstBuffer * buffer);
+static gboolean gst_rtp_gst_pay_handle_event (GstPad * pad, GstEvent * event);
 
 GST_BOILERPLATE (GstRtpGSTPay, gst_rtp_gst_pay, GstBaseRTPPayload,
     GST_TYPE_BASE_RTP_PAYLOAD)
@@ -109,6 +114,7 @@ gst_rtp_gst_pay_class_init (GstRtpGSTPayClass * klass)
 
   gstbasertppayload_class->set_caps = gst_rtp_gst_pay_setcaps;
   gstbasertppayload_class->handle_buffer = gst_rtp_gst_pay_handle_buffer;
+  gstbasertppayload_class->handle_event = gst_rtp_gst_pay_handle_event;
 
   GST_DEBUG_CATEGORY_INIT (gst_rtp_pay_debug, "rtpgstpay", 0,
       "rtpgstpay element");
@@ -118,6 +124,8 @@ static void
 gst_rtp_gst_pay_init (GstRtpGSTPay * rtpgstpay, GstRtpGSTPayClass * klass)
 {
   rtpgstpay->adapter = gst_adapter_new ();
+  gst_basertppayload_set_options (GST_BASE_RTP_PAYLOAD (rtpgstpay),
+      "application", TRUE, "X-GST", 90000);
 }
 
 static void
@@ -169,13 +177,14 @@ gst_rtp_gst_pay_flush (GstRtpGSTPay * rtpgstpay, GstClockTime timestamp)
      *  0                   1                   2                   3
      *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
      * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     * |C| CV  |D|X|Y|Z|                  MBZ                          |
+     * |C| CV  |D|X|Y|Z|     ETYPE     |  MBZ                          |
      * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      * |                          Frag_offset                          |
      * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      */
     payload[0] = rtpgstpay->flags;
-    payload[1] = payload[2] = payload[3] = 0;
+    payload[1] = rtpgstpay->etype;
+    payload[2] = payload[3] = 0;
     payload[4] = frag_offset >> 24;
     payload[5] = frag_offset >> 16;
     payload[6] = frag_offset >> 8;
@@ -202,6 +211,7 @@ gst_rtp_gst_pay_flush (GstRtpGSTPay * rtpgstpay, GstClockTime timestamp)
       goto push_failed;
   }
   rtpgstpay->flags &= 0x70;
+  rtpgstpay->etype = 0;
 
   return GST_FLOW_OK;
 
@@ -212,8 +222,35 @@ push_failed:
         gst_flow_get_name (ret));
     gst_adapter_clear (rtpgstpay->adapter);
     rtpgstpay->flags &= 0x70;
+    rtpgstpay->etype = 0;
     return ret;
   }
+}
+
+static GstBuffer *
+make_data_buffer (GstRtpGSTPay * rtpgstpay, gchar * data, guint size)
+{
+  guint plen;
+  guint8 *ptr;
+  GstBuffer *outbuf;
+
+  /* calculate length */
+  plen = 1;
+  while (size >> (7 * plen))
+    plen++;
+
+  outbuf = gst_buffer_new_and_alloc (plen + size);
+  ptr = GST_BUFFER_DATA (outbuf);
+
+  /* write length */
+  while (plen) {
+    plen--;
+    *ptr++ = ((plen > 0) ? 0x80 : 0) | ((size >> (7 * plen)) & 0x7f);
+  }
+  /* copy data */
+  memcpy (ptr, data, size);
+
+  return outbuf;
 }
 
 static gboolean
@@ -222,8 +259,7 @@ gst_rtp_gst_pay_setcaps (GstBaseRTPPayload * payload, GstCaps * caps)
   GstRtpGSTPay *rtpgstpay;
   gboolean res;
   gchar *capsstr, *capsenc, *capsver;
-  guint capslen, capslen_prefix_len;
-  guint8 *ptr;
+  guint capslen;
   GstBuffer *outbuf;
 
   rtpgstpay = GST_RTP_GST_PAY (payload);
@@ -239,21 +275,8 @@ gst_rtp_gst_pay_setcaps (GstBaseRTPPayload * payload, GstCaps * caps)
   /* for 0 byte */
   capslen++;
 
-  /* start of buffer, calculate length */
-  capslen_prefix_len = 1;
-  while (capslen >> (7 * capslen_prefix_len))
-    capslen_prefix_len++;
-
-  outbuf = gst_buffer_new_and_alloc (capslen + capslen_prefix_len);
-  ptr = GST_BUFFER_DATA (outbuf);
-
-  /* write caps length */
-  while (capslen_prefix_len) {
-    capslen_prefix_len--;
-    *ptr++ = ((capslen_prefix_len > 0) ? 0x80 : 0) |
-        ((capslen >> (7 * capslen_prefix_len)) & 0x7f);
-  }
-  memcpy (ptr, capsstr, capslen);
+  /* make a data buffer of it */
+  outbuf = make_data_buffer (rtpgstpay, capsstr, capslen);
   g_free (capsstr);
 
   /* store in adapter, we don't flush yet, buffer will follow */
@@ -263,7 +286,6 @@ gst_rtp_gst_pay_setcaps (GstBaseRTPPayload * payload, GstCaps * caps)
 
   /* make caps for SDP */
   capsver = g_strdup_printf ("%d", rtpgstpay->current_CV);
-  gst_basertppayload_set_options (payload, "application", TRUE, "X-GST", 90000);
   res =
       gst_basertppayload_set_outcaps (payload, "caps", G_TYPE_STRING, capsenc,
       "capsversion", G_TYPE_STRING, capsver, NULL);
@@ -271,6 +293,49 @@ gst_rtp_gst_pay_setcaps (GstBaseRTPPayload * payload, GstCaps * caps)
   g_free (capsver);
 
   return res;
+}
+
+static gboolean
+gst_rtp_gst_pay_handle_event (GstPad * pad, GstEvent * event)
+{
+  GstRtpGSTPay *rtpgstpay;
+
+  rtpgstpay = GST_RTP_GST_PAY (GST_PAD_PARENT (pad));
+
+  switch (GST_EVENT_TYPE (event)) {
+    case GST_EVENT_TAG:
+      rtpgstpay->etype = 1;
+      break;
+    case GST_EVENT_CUSTOM_DOWNSTREAM:
+      rtpgstpay->etype = 2;
+      break;
+    case GST_EVENT_CUSTOM_BOTH:
+      rtpgstpay->etype = 2;
+      break;
+    default:
+      break;
+  }
+  if (rtpgstpay->etype) {
+    const GstStructure *s;
+    gchar *estr;
+    guint elen;
+    GstBuffer *outbuf;
+
+    GST_DEBUG_OBJECT (rtpgstpay, "make event type %d", rtpgstpay->etype);
+    s = gst_event_get_structure (event);
+
+    estr = gst_structure_to_string (s);
+    elen = strlen (estr);
+    outbuf = make_data_buffer (rtpgstpay, estr, elen);
+    g_free (estr);
+
+    gst_adapter_push (rtpgstpay->adapter, outbuf);
+    /* flush the adapter immediately */
+    gst_rtp_gst_pay_flush (rtpgstpay, GST_CLOCK_TIME_NONE);
+  }
+
+  /* FALSE to let base class handle it as well */
+  return FALSE;
 }
 
 static GstFlowReturn
