@@ -432,6 +432,9 @@ gst_jpegenc_handle_frame (GstVideoEncoder * encoder, GstVideoCodecFrame * frame)
 
   GST_LOG_OBJECT (jpegenc, "got buffer of %lu bytes", size);
 
+  if (size < GST_VIDEO_INFO_SIZE (&jpegenc->input_state->info))
+    goto input_too_small;
+
   jpegenc->current_frame = frame;
   jpegenc->output_buffer = frame->output_buffer =
       gst_buffer_new_and_alloc (jpegenc->bufsize);
@@ -499,6 +502,18 @@ gst_jpegenc_handle_frame (GstVideoEncoder * encoder, GstVideoCodecFrame * frame)
   GST_LOG_OBJECT (jpegenc, "compressing done");
 
   return GST_FLOW_OK;
+
+/* ERRORS */
+input_too_small:
+  {
+    GST_ELEMENT_ERROR (jpegenc, STREAM, ENCODE, (NULL),
+        ("Input video buffer too small, expected at least %lu bytes, but got "
+            "only %lu bytes. This is either a bug in an upstream element or "
+            "you need to use the videoparse element to read raw video data in the "
+            "right chunking.",
+            GST_VIDEO_INFO_SIZE (&jpegenc->input_state->info), size));
+    return GST_FLOW_ERROR;
+  }
 }
 
 static void
