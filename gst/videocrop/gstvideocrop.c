@@ -147,8 +147,7 @@ gst_video_crop_base_init (gpointer g_class)
       "Crops video into a user-defined region",
       "Tim-Philipp Müller <tim centricular net>");
 
-  gst_element_class_add_static_pad_template (element_class,
-      &sink_template);
+  gst_element_class_add_static_pad_template (element_class, &sink_template);
   gst_element_class_add_static_pad_template (element_class, &src_template);
 }
 
