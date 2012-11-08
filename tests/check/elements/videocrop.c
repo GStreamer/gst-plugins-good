@@ -281,6 +281,16 @@ check_1x1_buffer (GstBuffer * buf)
         fail_unless_equals_int (GST_BUFFER_DATA (buf)[3], 240);
         /* no chroma planes */
         break;
+      case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
+        fail_unless_equals_int (GST_BUFFER_DATA (buf)[0], 81);
+        fail_unless_equals_int (GST_BUFFER_DATA (buf)[8], 90);
+        fail_unless_equals_int (GST_BUFFER_DATA (buf)[9], 240);
+        break;
+      case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
+        fail_unless_equals_int (GST_BUFFER_DATA (buf)[0], 81);
+        fail_unless_equals_int (GST_BUFFER_DATA (buf)[8], 240);
+        fail_unless_equals_int (GST_BUFFER_DATA (buf)[9], 90);
+        break;
       default:
         GST_LOG ("not checking %" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (format));
         break;

@@ -102,6 +102,8 @@ enum
   GST_VIDEO_CAPS_YUV ("Y800") ";"                \
   GST_VIDEO_CAPS_YUV ("I420") ";"                \
   GST_VIDEO_CAPS_YUV ("YV12") ";"                \
+  GST_VIDEO_CAPS_YUV ("NV12") ";"                \
+  GST_VIDEO_CAPS_YUV ("NV21") ";"                \
   GST_VIDEO_CAPS_RGB_16 ";"                      \
   GST_VIDEO_CAPS_RGB_15 ";"			 \
   GST_VIDEO_CAPS_GRAY
@@ -327,6 +329,15 @@ gst_video_crop_get_image_details_from_caps (GstVideoCrop * vcrop,
         details->size = details->v_off +
             details->v_stride * (GST_ROUND_UP_2 (height) / 2);
         break;
+      case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
+      case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
+        details->packing = VIDEO_CROP_PIXEL_FORMAT_SEMI_PLANAR;
+        details->y_stride = GST_ROUND_UP_4 (width);
+        details->uv_stride = details->y_stride;
+        details->y_off = 0;
+        details->uv_off = details->y_stride * GST_ROUND_UP_2 (height);
+        details->size = details->y_stride * GST_ROUND_UP_2 (height) * 3 / 2;
+        break;
       }
       default:
         goto unknown_format;
@@ -480,6 +491,42 @@ gst_video_crop_transform_planar (GstVideoCrop * vcrop, GstBuffer * inbuf,
   }
 }
 
+static void
+gst_video_crop_transform_semi_planar (GstVideoCrop * vcrop, GstBuffer * inbuf,
+    GstBuffer * outbuf)
+{
+  guint8 *y_out, *uv_out;
+  guint8 *y_in, *uv_in;
+  guint i, dx;
+
+  /* Y plane */
+  y_in = GST_BUFFER_DATA (inbuf);
+  y_out = GST_BUFFER_DATA (outbuf);
+
+  y_in += vcrop->crop_top * vcrop->in.y_stride + vcrop->crop_left;
+  dx = vcrop->out.width;
+
+  for (i = 0; i < vcrop->out.height; ++i) {
+    memcpy (y_out, y_in, dx);
+    y_in += vcrop->in.y_stride;
+    y_out += vcrop->out.y_stride;
+  }
+
+  /* UV plane */
+  uv_in = GST_BUFFER_DATA (inbuf) + vcrop->in.uv_off;
+  uv_out = GST_BUFFER_DATA (outbuf) + vcrop->out.uv_off;
+
+  uv_in += (vcrop->crop_top / 2) * vcrop->in.uv_stride;
+  uv_in += GST_ROUND_DOWN_2 (vcrop->crop_left);
+  dx = GST_ROUND_UP_2 (vcrop->out.width);
+
+  for (i = 0; i < GST_ROUND_UP_2 (vcrop->out.height) / 2; i++) {
+    memcpy (uv_out, uv_in, dx);
+    uv_in += vcrop->in.uv_stride;
+    uv_out += vcrop->out.uv_stride;
+  }
+}
+
 static GstFlowReturn
 gst_video_crop_transform (GstBaseTransform * trans, GstBuffer * inbuf,
     GstBuffer * outbuf)
@@ -495,6 +542,9 @@ gst_video_crop_transform (GstBaseTransform * trans, GstBuffer * inbuf,
       break;
     case VIDEO_CROP_PIXEL_FORMAT_PLANAR:
       gst_video_crop_transform_planar (vcrop, inbuf, outbuf);
+      break;
+    case VIDEO_CROP_PIXEL_FORMAT_SEMI_PLANAR:
+      gst_video_crop_transform_semi_planar (vcrop, inbuf, outbuf);
       break;
     default:
       g_assert_not_reached ();
