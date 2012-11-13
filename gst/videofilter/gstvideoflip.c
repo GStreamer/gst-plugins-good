@@ -78,6 +78,7 @@ static GstStaticPadTemplate gst_video_flip_src_template =
         GST_VIDEO_CAPS_YUV ("I420") ";"
         GST_VIDEO_CAPS_YUV ("YV12") ";" GST_VIDEO_CAPS_YUV ("IYUV") ";"
         GST_VIDEO_CAPS_YUV ("YUY2") ";" GST_VIDEO_CAPS_YUV ("UYVY") ";"
+        GST_VIDEO_CAPS_YUV ("NV12") ";" GST_VIDEO_CAPS_YUV ("NV21") ";"
         GST_VIDEO_CAPS_YUV ("YVYU")
 
     )
@@ -97,6 +98,7 @@ static GstStaticPadTemplate gst_video_flip_sink_template =
         GST_VIDEO_CAPS_YUV ("I420") ";"
         GST_VIDEO_CAPS_YUV ("YV12") ";" GST_VIDEO_CAPS_YUV ("IYUV") ";"
         GST_VIDEO_CAPS_YUV ("YUY2") ";" GST_VIDEO_CAPS_YUV ("UYVY") ";"
+        GST_VIDEO_CAPS_YUV ("NV12") ";" GST_VIDEO_CAPS_YUV ("NV21") ";"
         GST_VIDEO_CAPS_YUV ("YVYU")
     )
     );
@@ -458,6 +460,216 @@ gst_video_flip_planar_yuv (GstVideoFlip * videoflip, guint8 * dest,
         for (x = 0; x < dest_v_width; x++) {
           d[y * dest_v_stride + x] =
               s[(src_v_height - 1 - x) * src_v_stride + (src_v_width - 1 - y)];
+        }
+      }
+      break;
+    case GST_VIDEO_FLIP_METHOD_IDENTITY:
+      g_assert_not_reached ();
+      break;
+    default:
+      g_assert_not_reached ();
+      break;
+  }
+}
+
+static void
+gst_video_flip_semi_planar_yuv (GstVideoFlip * videoflip, guint8 * dest,
+    const guint8 * src)
+{
+  gint x, y;
+  guint8 const *s;
+  guint8 *d;
+  gint s_off, d_off;
+  GstVideoFormat format = videoflip->format;
+  gint sw = videoflip->from_width;
+  gint sh = videoflip->from_height;
+  gint dw = videoflip->to_width;
+  gint dh = videoflip->to_height;
+  gint src_y_stride, src_uv_stride;
+  gint src_y_offset, src_uv_offset;
+  gint src_y_height, src_uv_height;
+  gint src_y_width, src_uv_width;
+  gint dest_y_stride, dest_uv_stride;
+  gint dest_y_offset, dest_uv_offset;
+  gint dest_y_height, dest_uv_height;
+  gint dest_y_width, dest_uv_width;
+
+  src_y_stride = gst_video_format_get_row_stride (format, 0, sw);
+  src_uv_stride = gst_video_format_get_row_stride (format, 1, sw);
+
+  dest_y_stride = gst_video_format_get_row_stride (format, 0, dw);
+  dest_uv_stride = gst_video_format_get_row_stride (format, 1, dw);
+
+  src_y_offset = gst_video_format_get_component_offset (format, 0, sw, sh);
+  src_uv_offset = gst_video_format_get_component_offset (format, 1, sw, sh);
+
+  dest_y_offset = gst_video_format_get_component_offset (format, 0, dw, dh);
+  dest_uv_offset = gst_video_format_get_component_offset (format, 1, dw, dh);
+
+  src_y_width = gst_video_format_get_component_width (format, 0, sw);
+  src_uv_width = gst_video_format_get_component_width (format, 1, sw);
+
+  dest_y_width = gst_video_format_get_component_width (format, 0, dw);
+  dest_uv_width = gst_video_format_get_component_width (format, 1, dw);
+
+  src_y_height = gst_video_format_get_component_height (format, 0, sh);
+  src_uv_height = gst_video_format_get_component_height (format, 1, sh);
+
+  dest_y_height = gst_video_format_get_component_height (format, 0, dh);
+  dest_uv_height = gst_video_format_get_component_height (format, 1, dh);
+
+  switch (videoflip->method) {
+    case GST_VIDEO_FLIP_METHOD_90R:
+      /* Flip Y */
+      s = src + src_y_offset;
+      d = dest + dest_y_offset;
+      for (y = 0; y < dest_y_height; y++) {
+        for (x = 0; x < dest_y_width; x++) {
+          d[y * dest_y_stride + x] =
+              s[(src_y_height - 1 - x) * src_y_stride + y];
+        }
+      }
+      /* Flip UV */
+      s = src + src_uv_offset;
+      d = dest + dest_uv_offset;
+      for (y = 0; y < dest_uv_height; y++) {
+        for (x = 0; x < dest_uv_width; x++) {
+          d_off = y * dest_uv_stride + x * 2;
+          s_off = (src_uv_height - 1 - x) * src_uv_stride + y * 2;
+          d[d_off] = s[s_off];
+          d[d_off + 1] = s[s_off + 1];
+        }
+      }
+      break;
+    case GST_VIDEO_FLIP_METHOD_90L:
+      /* Flip Y */
+      s = src + src_y_offset;
+      d = dest + dest_y_offset;
+      for (y = 0; y < dest_y_height; y++) {
+        for (x = 0; x < dest_y_width; x++) {
+          d[y * dest_y_stride + x] =
+              s[x * src_y_stride + (src_y_width - 1 - y)];
+        }
+      }
+      /* Flip UV */
+      s = src + src_uv_offset;
+      d = dest + dest_uv_offset;
+      for (y = 0; y < dest_uv_height; y++) {
+        for (x = 0; x < dest_uv_width; x++) {
+          d_off = y * dest_uv_stride + x * 2;
+          s_off = x * src_uv_stride + (src_uv_width - 1 - y) * 2;
+          d[d_off] = s[s_off];
+          d[d_off + 1] = s[s_off + 1];
+        }
+      }
+      break;
+    case GST_VIDEO_FLIP_METHOD_180:
+      /* Flip Y */
+      s = src + src_y_offset;
+      d = dest + dest_y_offset;
+      for (y = 0; y < dest_y_height; y++) {
+        for (x = 0; x < dest_y_width; x++) {
+          d[y * dest_y_stride + x] =
+              s[(src_y_height - 1 - y) * src_y_stride + (src_y_width - 1 - x)];
+        }
+      }
+      /* Flip UV */
+      s = src + src_uv_offset;
+      d = dest + dest_uv_offset;
+      for (y = 0; y < dest_uv_height; y++) {
+        for (x = 0; x < dest_uv_width; x++) {
+          d_off = y * dest_uv_stride + x * 2;
+          s_off = (src_uv_height - 1 - y) * src_uv_stride + (src_uv_width - 1 -
+              x) * 2;
+          d[d_off] = s[s_off];
+          d[d_off + 1] = s[s_off + 1];
+        }
+      }
+      break;
+    case GST_VIDEO_FLIP_METHOD_HORIZ:
+      /* Flip Y */
+      s = src + src_y_offset;
+      d = dest + dest_y_offset;
+      for (y = 0; y < dest_y_height; y++) {
+        for (x = 0; x < dest_y_width; x++) {
+          d[y * dest_y_stride + x] =
+              s[y * src_y_stride + (src_y_width - 1 - x)];
+        }
+      }
+      /* Flip UV */
+      s = src + src_uv_offset;
+      d = dest + dest_uv_offset;
+      for (y = 0; y < dest_uv_height; y++) {
+        for (x = 0; x < dest_uv_width; x++) {
+          d_off = y * dest_uv_stride + x * 2;
+          s_off = y * src_uv_stride + (src_uv_width - 1 - x) * 2;
+          d[d_off] = s[s_off];
+          d[d_off + 1] = s[s_off + 1];
+        }
+      }
+      break;
+    case GST_VIDEO_FLIP_METHOD_VERT:
+      /* Flip Y */
+      s = src + src_y_offset;
+      d = dest + dest_y_offset;
+      for (y = 0; y < dest_y_height; y++) {
+        for (x = 0; x < dest_y_width; x++) {
+          d[y * dest_y_stride + x] =
+              s[(src_y_height - 1 - y) * src_y_stride + x];
+        }
+      }
+      /* Flip UV */
+      s = src + src_uv_offset;
+      d = dest + dest_uv_offset;
+      for (y = 0; y < dest_uv_height; y++) {
+        for (x = 0; x < dest_uv_width; x++) {
+          d_off = y * dest_uv_stride + x * 2;
+          s_off = (src_uv_height - 1 - y) * src_uv_stride + x * 2;
+          d[d_off] = s[s_off];
+          d[d_off + 1] = s[s_off + 1];
+        }
+      }
+      break;
+    case GST_VIDEO_FLIP_METHOD_TRANS:
+      /* Flip Y */
+      s = src + src_y_offset;
+      d = dest + dest_y_offset;
+      for (y = 0; y < dest_y_height; y++) {
+        for (x = 0; x < dest_y_width; x++) {
+          d[y * dest_y_stride + x] = s[x * src_y_stride + y];
+        }
+      }
+      /* Flip UV */
+      s = src + src_uv_offset;
+      d = dest + dest_uv_offset;
+      for (y = 0; y < dest_uv_height; y++) {
+        for (x = 0; x < dest_uv_width; x++) {
+          d_off = y * dest_uv_stride + x * 2;
+          s_off = x * src_uv_stride + y * 2;
+          d[d_off] = s[s_off];
+          d[d_off + 1] = s[s_off + 1];
+        }
+      }
+    case GST_VIDEO_FLIP_METHOD_OTHER:
+      /* Flip Y */
+      s = src + src_y_offset;
+      d = dest + dest_y_offset;
+      for (y = 0; y < dest_y_height; y++) {
+        for (x = 0; x < dest_y_width; x++) {
+          d[y * dest_y_stride + x] =
+              s[(src_y_height - 1 - x) * src_y_stride + (src_y_width - 1 - y)];
+        }
+      }
+      /* Flip UV */
+      s = src + src_uv_offset;
+      d = dest + dest_uv_offset;
+      for (y = 0; y < dest_uv_height; y++) {
+        for (x = 0; x < dest_uv_width; x++) {
+          d_off = y * dest_uv_stride + x * 2;
+          s_off = (src_uv_height - 1 - x) * src_uv_stride + (src_uv_width - 1 -
+              y) * 2;
+          d[d_off] = s[s_off];
+          d[d_off + 1] = s[s_off + 1];
         }
       }
       break;
@@ -862,6 +1074,10 @@ gst_video_flip_set_caps (GstBaseTransform * btrans, GstCaps * incaps,
     case GST_VIDEO_FORMAT_RGB:
     case GST_VIDEO_FORMAT_BGR:
       vf->process = gst_video_flip_packed_simple;
+      break;
+    case GST_VIDEO_FORMAT_NV12:
+    case GST_VIDEO_FORMAT_NV21:
+      vf->process = gst_video_flip_semi_planar_yuv;
       break;
     default:
       break;
