@@ -79,8 +79,9 @@ static GstStaticPadTemplate gst_video_flip_src_template =
         GST_VIDEO_CAPS_YUV ("YV12") ";" GST_VIDEO_CAPS_YUV ("IYUV") ";"
         GST_VIDEO_CAPS_YUV ("YUY2") ";" GST_VIDEO_CAPS_YUV ("UYVY") ";"
         GST_VIDEO_CAPS_YUV ("NV12") ";" GST_VIDEO_CAPS_YUV ("NV21") ";"
-        GST_VIDEO_CAPS_YUV ("YVYU")
-
+        GST_VIDEO_CAPS_YUV ("YVYU") ";" GST_VIDEO_CAPS_GRAY8 ";"
+        GST_VIDEO_CAPS_GRAY16 ("LITTLE_ENDIAN") ";"
+        GST_VIDEO_CAPS_GRAY16 ("BIG_ENDIAN")
     )
     );
 
@@ -99,7 +100,9 @@ static GstStaticPadTemplate gst_video_flip_sink_template =
         GST_VIDEO_CAPS_YUV ("YV12") ";" GST_VIDEO_CAPS_YUV ("IYUV") ";"
         GST_VIDEO_CAPS_YUV ("YUY2") ";" GST_VIDEO_CAPS_YUV ("UYVY") ";"
         GST_VIDEO_CAPS_YUV ("NV12") ";" GST_VIDEO_CAPS_YUV ("NV21") ";"
-        GST_VIDEO_CAPS_YUV ("YVYU")
+        GST_VIDEO_CAPS_YUV ("YVYU") ";" GST_VIDEO_CAPS_GRAY8 ";"
+        GST_VIDEO_CAPS_GRAY16 ("LITTLE_ENDIAN") ";"
+        GST_VIDEO_CAPS_GRAY16 ("BIG_ENDIAN")
     )
     );
 
@@ -1073,6 +1076,9 @@ gst_video_flip_set_caps (GstBaseTransform * btrans, GstCaps * incaps,
     case GST_VIDEO_FORMAT_BGRx:
     case GST_VIDEO_FORMAT_RGB:
     case GST_VIDEO_FORMAT_BGR:
+    case GST_VIDEO_FORMAT_GRAY8:
+    case GST_VIDEO_FORMAT_GRAY16_BE:
+    case GST_VIDEO_FORMAT_GRAY16_LE:
       vf->process = gst_video_flip_packed_simple;
       break;
     case GST_VIDEO_FORMAT_NV12:
