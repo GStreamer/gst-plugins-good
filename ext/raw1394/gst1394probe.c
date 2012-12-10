@@ -17,6 +17,8 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#define GLIB_DISABLE_DEPRECATION_WARNINGS
+
 #include <libavc1394/avc1394.h>
 #include <libavc1394/avc1394_vcr.h>
 #include <libavc1394/rom1394.h>

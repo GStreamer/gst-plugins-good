@@ -22,6 +22,8 @@
  * This element pulls buffers with random sizes from the source.
  */
 
+#define GLIB_DISABLE_DEPRECATION_WARNINGS
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -109,10 +111,8 @@ gst_rnd_buffer_size_base_init (gpointer g_class)
 {
   GstElementClass *gstelement_class = GST_ELEMENT_CLASS (g_class);
 
-  gst_element_class_add_static_pad_template (gstelement_class,
-      &sink_template);
-  gst_element_class_add_static_pad_template (gstelement_class,
-      &src_template);
+  gst_element_class_add_static_pad_template (gstelement_class, &sink_template);
+  gst_element_class_add_static_pad_template (gstelement_class, &src_template);
 
   gst_element_class_set_details_simple (gstelement_class, "Random buffer size",
       "Testing", "pull random sized buffers",
