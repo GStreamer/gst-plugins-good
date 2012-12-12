@@ -397,13 +397,20 @@ retry:
     goto no_select;
 
   do {
+    gint64 timeout;
+
     try_again = FALSE;
 
-    GST_LOG_OBJECT (udpsrc, "doing select, timeout %" G_GUINT64_FORMAT,
-        udpsrc->timeout);
+    if (udpsrc->timeout)
+      timeout = udpsrc->timeout / 1000;
+    else
+      timeout = -1;
 
-    if (!g_socket_condition_wait (udpsrc->used_socket, G_IO_IN | G_IO_PRI,
-            udpsrc->cancellable, &err)) {
+    GST_LOG_OBJECT (udpsrc, "doing select, timeout %" G_GUINT64_FORMAT,
+        timeout);
+
+    if (!g_socket_condition_timed_wait (udpsrc->used_socket, G_IO_IN | G_IO_PRI,
+            timeout, udpsrc->cancellable, &err)) {
       if (g_error_matches (err, G_IO_ERROR, G_IO_ERROR_BUSY)
           || g_error_matches (err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
         goto stopped;
@@ -822,9 +829,6 @@ gst_udpsrc_start (GstBaseSrc * bsrc)
     if (!src->addr)
       goto getsockname_error;
   }
-
-  if (src->timeout)
-    g_socket_set_timeout (src->used_socket, src->timeout / GST_SECOND);
 
 #if GLIB_CHECK_VERSION (2, 35, 7)
   {
