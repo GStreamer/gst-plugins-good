@@ -2302,6 +2302,9 @@ new_manager_pad (GstElement * manager, GstPad * pad, GstRTSPSrc * src)
   if (stream == NULL)
     goto unknown_stream;
 
+  /* save SSRC */
+  stream->ssrc = ssrc;
+
   /* create a new pad we will use to stream to */
   template = gst_static_pad_template_get (&rtptemplate);
   stream->srcpad = gst_ghost_pad_new_from_template (name, pad, template);
