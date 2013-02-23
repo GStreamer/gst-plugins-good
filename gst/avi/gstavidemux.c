@@ -3378,7 +3378,9 @@ gst_avi_demux_stream_header_push (GstAviDemux * avi)
               }
               break;
             default:
-              if (gst_avi_demux_peek_chunk (avi, &tag, &size)) {
+              if (gst_avi_demux_peek_chunk (avi, &tag, &size) || size == 0) {
+                /* accept 0 size buffer here */
+                avi->abort_buffering = FALSE;
                 avi->offset += 8 + GST_ROUND_UP_2 (size);
                 gst_adapter_flush (avi->adapter, 8 + GST_ROUND_UP_2 (size));
               } else {
@@ -3388,7 +3390,9 @@ gst_avi_demux_stream_header_push (GstAviDemux * avi)
               break;
           }
         } else {
-          if (gst_avi_demux_peek_chunk (avi, &tag, &size)) {
+          if (gst_avi_demux_peek_chunk (avi, &tag, &size) || size == 0) {
+            /* accept 0 size buffer here */
+            avi->abort_buffering = FALSE;
             avi->offset += 8 + GST_ROUND_UP_2 (size);
             gst_adapter_flush (avi->adapter, 8 + GST_ROUND_UP_2 (size));
           } else {
