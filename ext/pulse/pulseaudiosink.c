@@ -644,7 +644,7 @@ static void
 proxypad_blocked_cb (GstPad * pad, gboolean blocked, gpointer data)
 {
   GstPulseAudioSink *pbin = GST_PULSE_AUDIO_SINK (data);
-  GstCaps *caps;
+  GstCaps *caps = NULL;
   GstPad *sinkpad = NULL;
 
   if (!blocked) {
@@ -676,8 +676,6 @@ proxypad_blocked_cb (GstPad * pad, gboolean blocked, gpointer data)
       } else
         GST_DEBUG_OBJECT (pbin, "Doing nothing");
 
-      gst_caps_unref (caps);
-      gst_object_unref (sinkpad);
       goto done;
     }
     /* pulsesink doesn't accept the incoming caps, so add a decodebin
@@ -702,6 +700,11 @@ done:
 
   gst_pad_set_blocked_async_full (pad, FALSE, proxypad_blocked_cb,
       gst_object_ref (pbin), (GDestroyNotify) gst_object_unref);
+
+  if (sinkpad)
+    gst_object_unref (sinkpad);
+  if (caps)
+    gst_caps_unref (caps);
 
   GST_PULSE_AUDIO_SINK_UNLOCK (pbin);
 }
