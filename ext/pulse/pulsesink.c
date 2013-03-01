@@ -2171,6 +2171,8 @@ out:
     pa_stream_unref (stream);
   }
 
+  gst_caps_replace (&spec.caps, NULL);
+
   pa_threaded_mainloop_unlock (mainloop);
 
 done:
