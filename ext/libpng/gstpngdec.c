@@ -149,7 +149,7 @@ user_info_callback (png_structp png_ptr, png_infop info)
   pngdec->rowbytes = GST_ROUND_UP_4 (pngdec->rowbytes);
   buffer_size = height * pngdec->rowbytes;
 
-  GST_DEBUG ("Allocating a buffer of %d bytes", buffer_size);
+  GST_DEBUG ("Allocating a buffer of %" G_GSIZE_FORMAT " bytes", buffer_size);
 
   g_assert (pngdec->buffer_out == NULL);
   pngdec->buffer_out = pngdec->current_frame->output_buffer =
