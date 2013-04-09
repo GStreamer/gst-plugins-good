@@ -278,8 +278,6 @@ gst_rtp_gst_pay_flush (GstRtpGSTPay * rtpgstpay, GstClockTime timestamp)
     payload += 8;
     payload_len -= 8;
 
-    GST_DEBUG_OBJECT (rtpgstpay, "copy %u bytes from adapter", payload_len);
-
     frag_offset += payload_len;
     avail -= payload_len;
 
@@ -292,6 +290,7 @@ gst_rtp_gst_pay_flush (GstRtpGSTPay * rtpgstpay, GstClockTime timestamp)
       GstBuffer *paybuf;
 
       /* create a new buf to hold the payload */
+      GST_DEBUG_OBJECT (rtpgstpay, "take %u bytes from adapter", payload_len);
       paybuf = gst_adapter_take_buffer (rtpgstpay->adapter, payload_len);
 
       /* create a new group to hold the rtp header and the payload */
@@ -299,6 +298,7 @@ gst_rtp_gst_pay_flush (GstRtpGSTPay * rtpgstpay, GstClockTime timestamp)
       gst_buffer_list_iterator_add (it, outbuf);
       gst_buffer_list_iterator_add (it, paybuf);
     } else {
+      GST_DEBUG_OBJECT (rtpgstpay, "copy %u bytes from adapter", payload_len);
       gst_adapter_copy (rtpgstpay->adapter, payload, 0, payload_len);
       gst_adapter_flush (rtpgstpay->adapter, payload_len);
 
