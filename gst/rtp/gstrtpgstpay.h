@@ -47,6 +47,8 @@ struct _GstRtpGSTPay
   GstAdapter *adapter;
   guint8 flags;
   guint8 etype;
+  gboolean have_caps;
+  GList *events;
 
   guint8 current_CV; /* CV field of incoming caps*/
   guint8 next_CV;

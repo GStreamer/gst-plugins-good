@@ -77,10 +77,13 @@ GST_STATIC_PAD_TEMPLATE ("src",
 
 static void gst_rtp_gst_pay_finalize (GObject * obj);
 
+static GstStateChangeReturn
+gst_rtp_gst_pay_change_state (GstElement * element, GstStateChange transition);
+
 static gboolean gst_rtp_gst_pay_setcaps (GstBaseRTPPayload * payload,
     GstCaps * caps);
-static GstFlowReturn gst_rtp_gst_pay_handle_buffer (GstBaseRTPPayload * payload,
-    GstBuffer * buffer);
+static GstFlowReturn gst_rtp_gst_pay_handle_buffer (GstBaseRTPPayload *
+    payload, GstBuffer * buffer);
 static gboolean gst_rtp_gst_pay_handle_event (GstPad * pad, GstEvent * event);
 
 GST_BOILERPLATE (GstRtpGSTPay, gst_rtp_gst_pay, GstBaseRTPPayload,
@@ -105,12 +108,16 @@ static void
 gst_rtp_gst_pay_class_init (GstRtpGSTPayClass * klass)
 {
   GObjectClass *gobject_class;
+  GstElementClass *gstelement_class;
   GstBaseRTPPayloadClass *gstbasertppayload_class;
 
   gobject_class = (GObjectClass *) klass;
+  gstelement_class = (GstElementClass *) klass;
   gstbasertppayload_class = (GstBaseRTPPayloadClass *) klass;
 
   gobject_class->finalize = gst_rtp_gst_pay_finalize;
+
+  gstelement_class->change_state = gst_rtp_gst_pay_change_state;
 
   gstbasertppayload_class->set_caps = gst_rtp_gst_pay_setcaps;
   gstbasertppayload_class->handle_buffer = gst_rtp_gst_pay_handle_buffer;
@@ -129,12 +136,22 @@ gst_rtp_gst_pay_init (GstRtpGSTPay * rtpgstpay, GstRtpGSTPayClass * klass)
 }
 
 static void
+gst_rtp_gst_pay_reset (GstRtpGSTPay * rtpgstpay)
+{
+  g_list_foreach (rtpgstpay->events, (GFunc) gst_event_unref, NULL);
+  g_list_free (rtpgstpay->events);
+  rtpgstpay->events = NULL;
+  rtpgstpay->have_caps = FALSE;
+}
+
+static void
 gst_rtp_gst_pay_finalize (GObject * obj)
 {
   GstRtpGSTPay *rtpgstpay;
 
   rtpgstpay = GST_RTP_GST_PAY (obj);
 
+  gst_rtp_gst_pay_reset (rtpgstpay);
   g_object_unref (rtpgstpay->adapter);
 
   G_OBJECT_CLASS (parent_class)->finalize (obj);
@@ -253,55 +270,9 @@ make_data_buffer (GstRtpGSTPay * rtpgstpay, gchar * data, guint size)
   return outbuf;
 }
 
-static gboolean
-gst_rtp_gst_pay_setcaps (GstBaseRTPPayload * payload, GstCaps * caps)
+static void
+process_event (GstRtpGSTPay * rtpgstpay, GstEvent * event)
 {
-  GstRtpGSTPay *rtpgstpay;
-  gboolean res;
-  gchar *capsstr, *capsenc, *capsver;
-  guint capslen;
-  GstBuffer *outbuf;
-
-  rtpgstpay = GST_RTP_GST_PAY (payload);
-
-  capsstr = gst_caps_to_string (caps);
-  capslen = strlen (capsstr);
-
-  rtpgstpay->current_CV = rtpgstpay->next_CV;
-
-  /* encode without 0 byte */
-  capsenc = g_base64_encode ((guchar *) capsstr, capslen);
-  GST_DEBUG_OBJECT (payload, "caps=%s, caps(base64)=%s", capsstr, capsenc);
-  /* for 0 byte */
-  capslen++;
-
-  /* make a data buffer of it */
-  outbuf = make_data_buffer (rtpgstpay, capsstr, capslen);
-  g_free (capsstr);
-
-  /* store in adapter, we don't flush yet, buffer will follow */
-  rtpgstpay->flags = (1 << 7) | (rtpgstpay->current_CV << 4);
-  rtpgstpay->next_CV = (rtpgstpay->next_CV + 1) & 0x7;
-  gst_adapter_push (rtpgstpay->adapter, outbuf);
-
-  /* make caps for SDP */
-  capsver = g_strdup_printf ("%d", rtpgstpay->current_CV);
-  res =
-      gst_basertppayload_set_outcaps (payload, "caps", G_TYPE_STRING, capsenc,
-      "capsversion", G_TYPE_STRING, capsver, NULL);
-  g_free (capsenc);
-  g_free (capsver);
-
-  return res;
-}
-
-static gboolean
-gst_rtp_gst_pay_handle_event (GstPad * pad, GstEvent * event)
-{
-  GstRtpGSTPay *rtpgstpay;
-
-  rtpgstpay = GST_RTP_GST_PAY (GST_PAD_PARENT (pad));
-
   switch (GST_EVENT_TYPE (event)) {
     case GST_EVENT_TAG:
       rtpgstpay->etype = 1;
@@ -333,7 +304,77 @@ gst_rtp_gst_pay_handle_event (GstPad * pad, GstEvent * event)
     /* flush the adapter immediately */
     gst_rtp_gst_pay_flush (rtpgstpay, GST_CLOCK_TIME_NONE);
   }
+}
 
+
+static gboolean
+gst_rtp_gst_pay_setcaps (GstBaseRTPPayload * payload, GstCaps * caps)
+{
+  GstRtpGSTPay *rtpgstpay;
+  gboolean res;
+  gchar *capsstr, *capsenc, *capsver;
+  guint capslen;
+  GstBuffer *outbuf;
+  GList *walk;
+
+  rtpgstpay = GST_RTP_GST_PAY (payload);
+
+  capsstr = gst_caps_to_string (caps);
+  capslen = strlen (capsstr);
+
+  rtpgstpay->current_CV = rtpgstpay->next_CV;
+
+  /* encode without 0 byte */
+  capsenc = g_base64_encode ((guchar *) capsstr, capslen);
+  GST_DEBUG_OBJECT (payload, "caps=%s, caps(base64)=%s", capsstr, capsenc);
+  /* for 0 byte */
+  capslen++;
+
+  /* make caps for SDP */
+  capsver = g_strdup_printf ("%d", rtpgstpay->current_CV);
+  res =
+      gst_basertppayload_set_outcaps (payload, "caps", G_TYPE_STRING, capsenc,
+      "capsversion", G_TYPE_STRING, capsver, NULL);
+
+  rtpgstpay->have_caps = TRUE;
+
+  for (walk = rtpgstpay->events; walk; walk = g_list_next (walk)) {
+    GstEvent *event = walk->data;
+
+    process_event (rtpgstpay, event);
+    gst_event_unref (event);
+  }
+  g_list_free (rtpgstpay->events);
+  rtpgstpay->events = NULL;
+
+  /* make a data buffer of it */
+  outbuf = make_data_buffer (rtpgstpay, capsstr, capslen);
+  g_free (capsstr);
+
+  /* store in adapter, we don't flush yet, buffer will follow */
+  rtpgstpay->flags = (1 << 7) | (rtpgstpay->current_CV << 4);
+  rtpgstpay->next_CV = (rtpgstpay->next_CV + 1) & 0x7;
+  gst_adapter_push (rtpgstpay->adapter, outbuf);
+
+  g_free (capsenc);
+  g_free (capsver);
+
+  return res;
+}
+
+static gboolean
+gst_rtp_gst_pay_handle_event (GstPad * pad, GstEvent * event)
+{
+  GstRtpGSTPay *rtpgstpay;
+
+  rtpgstpay = GST_RTP_GST_PAY (GST_PAD_PARENT (pad));
+
+  if (!rtpgstpay->have_caps) {
+    rtpgstpay->events =
+        g_list_append (rtpgstpay->events, gst_event_ref (event));
+  } else {
+    process_event (rtpgstpay, event);
+  }
   /* FALSE to let base class handle it as well */
   return FALSE;
 }
@@ -365,6 +406,35 @@ gst_rtp_gst_pay_handle_buffer (GstBaseRTPPayload * basepayload,
 
   return ret;
 }
+
+static GstStateChangeReturn
+gst_rtp_gst_pay_change_state (GstElement * element, GstStateChange transition)
+{
+  GstRtpGSTPay *rtpgstpay;
+  GstStateChangeReturn ret;
+
+  rtpgstpay = GST_RTP_GST_PAY (element);
+
+  switch (transition) {
+    case GST_STATE_CHANGE_READY_TO_PAUSED:
+      gst_rtp_gst_pay_reset (rtpgstpay);
+      break;
+    default:
+      break;
+  }
+
+  ret = GST_ELEMENT_CLASS (parent_class)->change_state (element, transition);
+
+  switch (transition) {
+    case GST_STATE_CHANGE_PAUSED_TO_READY:
+      gst_rtp_gst_pay_reset (rtpgstpay);
+      break;
+    default:
+      break;
+  }
+  return ret;
+}
+
 
 gboolean
 gst_rtp_gst_pay_plugin_init (GstPlugin * plugin)
