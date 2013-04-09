@@ -59,6 +59,14 @@ GST_DEBUG_CATEGORY_STATIC (gst_rtp_pay_debug);
  *   3 = GST_EVENT_CUSTOM_BOTH
  */
 
+#define DEFAULT_BUFFER_LIST     FALSE
+enum
+{
+  PROP_0,
+  PROP_BUFFER_LIST,
+  PROP_LAST
+};
+
 static GstStaticPadTemplate gst_rtp_gst_pay_sink_template =
 GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
@@ -74,6 +82,11 @@ GST_STATIC_PAD_TEMPLATE ("src",
         "payload = (int) " GST_RTP_PAYLOAD_DYNAMIC_STRING ", "
         "clock-rate = (int) 90000, " "encoding-name = (string) \"X-GST\"")
     );
+
+static void gst_rtp_gst_pay_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec);
+static void gst_rtp_gst_pay_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec);
 
 static void gst_rtp_gst_pay_finalize (GObject * obj);
 
@@ -115,7 +128,14 @@ gst_rtp_gst_pay_class_init (GstRtpGSTPayClass * klass)
   gstelement_class = (GstElementClass *) klass;
   gstbasertppayload_class = (GstBaseRTPPayloadClass *) klass;
 
+  gobject_class->set_property = gst_rtp_gst_pay_set_property;
+  gobject_class->get_property = gst_rtp_gst_pay_get_property;
   gobject_class->finalize = gst_rtp_gst_pay_finalize;
+
+  g_object_class_install_property (G_OBJECT_CLASS (klass), PROP_BUFFER_LIST,
+      g_param_spec_boolean ("buffer-list", "Buffer List",
+          "Use Buffer Lists",
+          DEFAULT_BUFFER_LIST, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   gstelement_class->change_state = gst_rtp_gst_pay_change_state;
 
@@ -130,6 +150,7 @@ gst_rtp_gst_pay_class_init (GstRtpGSTPayClass * klass)
 static void
 gst_rtp_gst_pay_init (GstRtpGSTPay * rtpgstpay, GstRtpGSTPayClass * klass)
 {
+  rtpgstpay->buffer_list = DEFAULT_BUFFER_LIST;
   rtpgstpay->adapter = gst_adapter_new ();
   gst_basertppayload_set_options (GST_BASE_RTP_PAYLOAD (rtpgstpay),
       "application", TRUE, "X-GST", 90000);
@@ -157,15 +178,58 @@ gst_rtp_gst_pay_finalize (GObject * obj)
   G_OBJECT_CLASS (parent_class)->finalize (obj);
 }
 
+static void
+gst_rtp_gst_pay_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  GstRtpGSTPay *rtpgstpay;
+
+  rtpgstpay = GST_RTP_GST_PAY (object);
+
+  switch (prop_id) {
+    case PROP_BUFFER_LIST:
+      rtpgstpay->buffer_list = g_value_get_boolean (value);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+gst_rtp_gst_pay_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec)
+{
+  GstRtpGSTPay *rtpgstpay;
+
+  rtpgstpay = GST_RTP_GST_PAY (object);
+
+  switch (prop_id) {
+    case PROP_BUFFER_LIST:
+      g_value_set_boolean (value, rtpgstpay->buffer_list);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
 static GstFlowReturn
 gst_rtp_gst_pay_flush (GstRtpGSTPay * rtpgstpay, GstClockTime timestamp)
 {
   GstFlowReturn ret;
   guint avail;
   guint frag_offset;
+  GstBufferList *list = NULL;
+  GstBufferListIterator *it = NULL;
 
   frag_offset = 0;
   avail = gst_adapter_available (rtpgstpay->adapter);
+
+  if (rtpgstpay->buffer_list) {
+    list = gst_buffer_list_new ();
+    it = gst_buffer_list_iterate (list);
+  }
 
   while (avail) {
     guint towrite;
@@ -183,8 +247,12 @@ gst_rtp_gst_pay_flush (GstRtpGSTPay * rtpgstpay, GstClockTime timestamp)
     /* this is the payload length */
     payload_len = gst_rtp_buffer_calc_payload_len (towrite, 0, 0);
 
-    /* create buffer to hold the payload */
-    outbuf = gst_rtp_buffer_new_allocate (payload_len, 0, 0);
+    if (rtpgstpay->buffer_list) {
+      outbuf = gst_rtp_buffer_new_allocate (8, 0, 0);
+    } else {
+      /* create buffer to hold the payload */
+      outbuf = gst_rtp_buffer_new_allocate (payload_len, 0, 0);
+    }
     payload = gst_rtp_buffer_get_payload (outbuf);
 
     GST_DEBUG_OBJECT (rtpgstpay, "new packet len %u, frag %u", packet_len,
@@ -212,21 +280,39 @@ gst_rtp_gst_pay_flush (GstRtpGSTPay * rtpgstpay, GstClockTime timestamp)
 
     GST_DEBUG_OBJECT (rtpgstpay, "copy %u bytes from adapter", payload_len);
 
-    gst_adapter_copy (rtpgstpay->adapter, payload, 0, payload_len);
-    gst_adapter_flush (rtpgstpay->adapter, payload_len);
-
     frag_offset += payload_len;
     avail -= payload_len;
+
+    GST_BUFFER_TIMESTAMP (outbuf) = timestamp;
 
     if (avail == 0)
       gst_rtp_buffer_set_marker (outbuf, TRUE);
 
-    GST_BUFFER_TIMESTAMP (outbuf) = timestamp;
+    if (rtpgstpay->buffer_list) {
+      GstBuffer *paybuf;
 
-    ret = gst_basertppayload_push (GST_BASE_RTP_PAYLOAD (rtpgstpay), outbuf);
-    if (ret != GST_FLOW_OK)
-      goto push_failed;
+      /* create a new buf to hold the payload */
+      paybuf = gst_adapter_take_buffer (rtpgstpay->adapter, payload_len);
+
+      /* create a new group to hold the rtp header and the payload */
+      gst_buffer_list_iterator_add_group (it);
+      gst_buffer_list_iterator_add (it, outbuf);
+      gst_buffer_list_iterator_add (it, paybuf);
+    } else {
+      gst_adapter_copy (rtpgstpay->adapter, payload, 0, payload_len);
+      gst_adapter_flush (rtpgstpay->adapter, payload_len);
+
+      ret = gst_basertppayload_push (GST_BASE_RTP_PAYLOAD (rtpgstpay), outbuf);
+      if (ret != GST_FLOW_OK)
+        goto push_failed;
+    }
   }
+  if (rtpgstpay->buffer_list) {
+    gst_buffer_list_iterator_free (it);
+    /* push the whole buffer list at once */
+    ret = gst_basertppayload_push_list (GST_BASE_RTP_PAYLOAD (rtpgstpay), list);
+  }
+
   rtpgstpay->flags &= 0x70;
   rtpgstpay->etype = 0;
 

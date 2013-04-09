@@ -44,6 +44,8 @@ struct _GstRtpGSTPay
 {
   GstBaseRTPPayload payload;
 
+  gboolean buffer_list;
+
   GstAdapter *adapter;
   guint8 flags;
   guint8 etype;
