@@ -2078,7 +2078,7 @@ gst_pulsesink_pad_acceptcaps (GstPad * pad, GstCaps * caps)
   }
 
   /* Either template caps didn't match, or we're still in NULL state */
-  if (!ret || !pbuf->context)
+  if (!ret || !pbuf || !pbuf->context)
     goto done;
 
   /* If we've not got fixed caps, creating a stream might fail, so let's just
