@@ -50,6 +50,7 @@
 #endif
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 #include <glib/gprintf.h>
 
@@ -2667,7 +2668,7 @@ gst_matroska_demux_push_dvd_clut_change_event (GstMatroskaDemux * demux,
   /* make sure we have terminating 0 */
   buf = g_strndup (stream->codec_priv, stream->codec_priv_size);
 
-  /* just locate and parse palette part */
+  /* locate and parse palette part */
   start = strstr (buf, "palette:");
   if (start) {
     gint i;
@@ -2714,6 +2715,28 @@ gst_matroska_demux_push_dvd_clut_change_event (GstMatroskaDemux * demux,
           gst_event_new_custom (GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, s));
     }
   }
+
+  /* locate and parse frame size */
+  start = strstr (buf, "size:");
+  if (start) {
+    guint width, height;
+
+    start += 5;
+    while (g_ascii_isspace (*start))
+      start++;
+
+    if (sscanf (start, "%ux%u", &width, &height) == 2) {
+      GstStructure *s;
+
+      s = gst_structure_new ("application/x-gst-dvd-frame-size",
+          "event", G_TYPE_STRING, "dvd-set-frame-size",
+          "width", G_TYPE_INT, width, "height", G_TYPE_INT, height, NULL);
+
+      gst_pad_push_event (stream->pad,
+          gst_event_new_custom (GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, s));
+    }
+  }
+
   g_free (buf);
 }
 
