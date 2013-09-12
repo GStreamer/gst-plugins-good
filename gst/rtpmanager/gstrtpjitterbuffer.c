@@ -1641,6 +1641,7 @@ again:
         GST_OBJECT_UNLOCK (jitterbuffer);
       }
     }
+
   do_wait:
     /* now we wait */
     GST_DEBUG_OBJECT (jitterbuffer, "waiting");
@@ -1847,6 +1848,9 @@ push_buffer:
     GST_BUFFER_FLAG_SET (outbuf, GST_BUFFER_FLAG_DISCONT);
     priv->discont = FALSE;
   }
+
+  out_time =
+      gst_segment_to_position (&priv->segment, GST_FORMAT_TIME, out_time);
 
   /* apply timestamp with offset to buffer now */
   GST_BUFFER_PTS (outbuf) = out_time;
