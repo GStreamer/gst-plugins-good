@@ -508,7 +508,7 @@ gst_v4l2src_decide_allocation (GstBaseSrc * bsrc, GstQuery * query)
         /* no downstream pool, use our own then */
         GST_DEBUG_OBJECT (src,
             "read/write mode: no downstream pool, using our own");
-        pool = GST_BUFFER_POOL_CAST (obj->pool);
+        pool = gst_object_ref (obj->pool);
         size = obj->sizeimage;
       } else {
         /* in READ/WRITE mode, prefer a downstream pool because our own pool
@@ -524,7 +524,9 @@ gst_v4l2src_decide_allocation (GstBaseSrc * bsrc, GstQuery * query)
     case GST_V4L2_IO_USERPTR:
     case GST_V4L2_IO_DMABUF:
       /* in streaming mode, prefer our own pool */
-      pool = GST_BUFFER_POOL_CAST (obj->pool);
+      if (pool)
+        gst_object_unref (pool);
+      pool = gst_object_ref (obj->pool);
       size = obj->sizeimage;
       GST_DEBUG_OBJECT (src,
           "streaming mode: using our own pool %" GST_PTR_FORMAT, pool);
@@ -557,6 +559,9 @@ gst_v4l2src_decide_allocation (GstBaseSrc * bsrc, GstQuery * query)
     gst_query_set_nth_allocation_pool (query, 0, pool, size, min, max);
   else
     gst_query_add_allocation_pool (query, pool, size, min, max);
+
+  if (pool)
+    gst_object_unref (pool);
 
   return GST_BASE_SRC_CLASS (parent_class)->decide_allocation (bsrc, query);
 }
