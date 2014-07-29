@@ -2381,8 +2381,8 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, GstCaps * caps)
 
   /* If no size in caps, use configured size */
   if (width == 0 && height == 0) {
-    width = format.fmt.pix_mp.width;
-    height = format.fmt.pix_mp.height;
+    width = format.fmt.pix.width;
+    height = format.fmt.pix.height;
   }
 
   if (format.type != v4l2object->type ||
