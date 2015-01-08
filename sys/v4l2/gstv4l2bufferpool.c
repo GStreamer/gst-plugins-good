@@ -568,7 +568,7 @@ streamon_failed:
   }
 }
 
-static gboolean
+static void
 gst_v4l2_buffer_pool_streamoff (GstV4l2BufferPool * pool)
 {
   GstV4l2Object *obj = pool->obj;
@@ -580,24 +580,19 @@ gst_v4l2_buffer_pool_streamoff (GstV4l2BufferPool * pool)
     case GST_V4L2_IO_DMABUF_IMPORT:
       if (pool->streaming) {
         if (v4l2_ioctl (pool->video_fd, VIDIOC_STREAMOFF, &obj->type) < 0)
-          goto streamoff_failed;
+          GST_WARNING_OBJECT (pool, "STREAMOFF failed with errno %d (%s)",
+              errno, g_strerror (errno));
 
         pool->streaming = FALSE;
 
         GST_DEBUG_OBJECT (pool, "Stopped streaming");
+
+        if (pool->vallocator)
+          gst_v4l2_allocator_flush (pool->vallocator);
       }
       break;
     default:
       break;
-  }
-
-  return TRUE;
-
-streamoff_failed:
-  {
-    GST_ERROR_OBJECT (pool, "error with STREAMOFF %d (%s)", errno,
-        g_strerror (errno));
-    return FALSE;
   }
 }
 
@@ -827,11 +822,7 @@ gst_v4l2_buffer_pool_stop (GstBufferPool * bpool)
     pool->other_pool = NULL;
   }
 
-  if (!gst_v4l2_buffer_pool_streamoff (pool))
-    goto streamoff_failed;
-
-  if (pool->vallocator)
-    gst_v4l2_allocator_flush (pool->vallocator);
+  gst_v4l2_buffer_pool_streamoff (pool);
 
   for (i = 0; i < VIDEO_MAX_FRAME; i++) {
     if (pool->buffers[i]) {
@@ -862,11 +853,6 @@ gst_v4l2_buffer_pool_stop (GstBufferPool * bpool)
   }
 
   return ret;
-
-  /* ERRORS */
-streamoff_failed:
-  GST_ERROR_OBJECT (pool, "device refused to stop streaming");
-  return FALSE;
 }
 
 static void
@@ -903,10 +889,7 @@ gst_v4l2_buffer_pool_flush_stop (GstBufferPool * bpool)
   if (pool->other_pool)
     gst_buffer_pool_set_flushing (pool->other_pool, FALSE);
 
-  if (!gst_v4l2_buffer_pool_streamoff (pool))
-    goto stop_failed;
-
-  gst_v4l2_allocator_flush (pool->vallocator);
+  gst_v4l2_buffer_pool_streamoff (pool);
 
   /* Reset our state */
   switch (obj->mode) {
@@ -956,14 +939,6 @@ streamon:
     gst_v4l2_buffer_pool_streamon (pool);
 
   gst_poll_set_flushing (pool->poll, FALSE);
-
-  return;
-
-  /* ERRORS */
-stop_failed:
-  {
-    GST_ERROR_OBJECT (pool, "device refused to flush");
-  }
 }
 
 static GstFlowReturn
