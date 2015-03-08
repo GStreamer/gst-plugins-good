@@ -1093,6 +1093,10 @@ gst_v4l2_buffer_pool_dqbuf (GstV4l2BufferPool * pool, GstBuffer ** buffer)
   }
 #endif
 
+  /* Ignore timestamp and field for OUTPUT device */
+  if (V4L2_TYPE_IS_OUTPUT (obj->type))
+    goto done;
+
   /* set top/bottom field first if v4l2_buffer has the information */
   switch (group->buffer.field) {
     case V4L2_FIELD_NONE:
@@ -1137,6 +1141,7 @@ gst_v4l2_buffer_pool_dqbuf (GstV4l2BufferPool * pool, GstBuffer ** buffer)
 
   GST_BUFFER_TIMESTAMP (outbuf) = timestamp;
 
+done:
   *buffer = outbuf;
 
   return GST_FLOW_OK;
