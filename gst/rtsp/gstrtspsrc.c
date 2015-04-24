@@ -4457,7 +4457,6 @@ gst_rtspsrc_handle_data (GstRTSPSrc * src, GstRTSPMessage * message)
 
       if ((caps = stream_get_caps_for_pt (ostream, ostream->default_pt))) {
         gst_pad_push_event (ostream->channelpad[0], gst_event_new_caps (caps));
-        gst_caps_unref (caps);
       }
     }
     g_checksum_free (cs);
