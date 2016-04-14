@@ -58,7 +58,24 @@ contains a set of codecs plugins based on libav (formerly gst-ffmpeg)
 
 Bugs fixed in this release
      
+      * 755106 : directsoundsink: mute property doesn't work
+      * 756897 : qtdemux: cenc aux_info_type endianness issue
+      * 757569 : rtspsrc: avoid potentially overflowing expression
+      * 761345 : rtpjpegpay: Allow different quantization tables for components 2 and 3
+      * 761637 : qtmux: handle file with wrong color_table_id values
+      * 761670 : jpegdec: Possible endless loop if file is corrupt
+      * 762117 : avidemux: Fix string memory leak
+      * 762208 : rtpmanager: Don't warn for duplicate/reordered packets
+      * 762209 : flvdemux: leaking eos event fix
+      * 762210 : flvmux: plug leak(s) in error-scenario
+      * 762420 : avidemux: Fix buffer memory leak
+      * 762434 : multifilesink: close file on write error with next-file mode is set to buffer
+      * 762516 : qtdemux: cenc auxiliary info parsing crashes
+      * 762542 : matroskademux: CRITICAL when seeking on matroska files without buffers
       * 762660 : flacparse: Pushing buffers before tags
+      * 762793 : rgvolume: modifies upstream tags in place without making them writable first
+      * 762893 : splitmuxsink critical assertion when changing  from null to ready
+      * 763093 : udpsrc: Fix multicast group joining with provided sockets on Windows
       * 764933 : rtpmux: if the sink pads receive GstBufferLists instead of GstBuffers, sticky events are not forwarded correctly to the src pads.
 
 ==== Download ====
