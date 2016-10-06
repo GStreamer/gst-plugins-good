@@ -198,6 +198,7 @@ gst_waveform_sink_getcaps (GstBaseSink * bsink, GstCaps * filter)
   MMRESULT mmresult;
   WAVEOUTCAPS wocaps;
   GstCaps *caps, *caps_temp;
+  gchar *caps_str;
 
   /* return the cached caps if already defined */
   if (wfsink->cached_caps) {
@@ -322,8 +323,10 @@ gst_waveform_sink_getcaps (GstBaseSink * bsink, GstCaps * filter)
     wfsink->cached_caps = gst_caps_ref (caps);
   }
 
+  caps_str = gst_caps_to_string (caps);
   GST_CAT_LOG_OBJECT (waveformsink_debug, wfsink, "Returning caps %s",
-      gst_caps_to_string (caps));
+      caps_str);
+  g_free (caps_str);
 
   return caps;
 }
