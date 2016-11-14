@@ -834,9 +834,6 @@ gst_udpsrc_create (GstPushSrc * psrc, GstBuffer ** buf)
       (g_inet_address_get_is_multicast (g_inet_socket_address_get_address
           (udpsrc->addr))) ? &msgs : NULL;
 
-  /* Retrieve sender address unless we've been configured not to do so */
-  p_saddr = (udpsrc->retrieve_sender_address) ? &saddr : NULL;
-
 retry:
 
   do {
