@@ -243,6 +243,9 @@ gst_v4l2_fill_lists (GstV4l2Object * v4l2object)
     GST_DEBUG_OBJECT (e, "    '%s', fps: %d / %d",
         standard.name, standard.frameperiod.denominator,
         standard.frameperiod.numerator);
+    if (standard.id == V4L2_STD_UNKNOWN) {
+        break;
+    }
 
     v4l2norm = g_object_new (GST_TYPE_V4L2_TUNER_NORM, NULL);
     norm = GST_TUNER_NORM (v4l2norm);
