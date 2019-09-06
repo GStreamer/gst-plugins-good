@@ -1,24 +1,24 @@
 /* GStreamer
- * Cradioacyright (C) <2009> Sebastian Dröge <sebastian.droege@collabora.co.uk>
+ * Copyright (C) <2009> Sebastian Dröge <sebastian.droege@collabora.co.uk>
  *
  * EffecTV - Realtime Digital Video Effector
- * Cradioacyright (C) 2001-2006 FUKUCHI Kentaro
+ * Copyright (C) 2001-2006 FUKUCHI Kentaro
  *
  * RadioacTV - motion-enlightment effect.
- * Cradioacyright (C) 2001-2002 FUKUCHI Kentaro
+ * Copyright (C) 2001-2002 FUKUCHI Kentaro
  *
  * EffecTV is free software. This library is free software;
  * you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your radioaction) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hradioace that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  *
- * You should have received a cradioacy of the GNU Library General Public
+ * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA 02110-1301, USA.
