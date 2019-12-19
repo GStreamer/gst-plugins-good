@@ -38,17 +38,17 @@ plugin_init (GstPlugin * plugin)
           GST_RANK_NONE, GST_TYPE_QT_SRC)) {
     return FALSE;
   }
-  /* this means the plugin must be loaded before the qml engine is loaded */
+  /* this means the plugin must be loaded before the qml engine loads the qml */
   qmlRegisterType<QtGLVideoItem> ("org.freedesktop.gstreamer.GLVideoItem", 1, 0, "GstGLVideoItem");
 
   return TRUE;
 }
 
 #ifndef GST_PACKAGE_NAME
-#define GST_PACKAGE_NAME   "GStreamer Bad Plug-ins (qmake)"
+#define GST_PACKAGE_NAME   "GStreamer Good Plug-ins (qmake)"
 #define GST_PACKAGE_ORIGIN "Unknown package origin"
 #define GST_LICENSE        "LGPL"
-#define PACKAGE            "gst-plugins-bad (qmake)"
+#define PACKAGE            "gst-plugins-good (qmake)"
 #define PACKAGE_VERSION    "1.13.0.1"
 #endif
 
