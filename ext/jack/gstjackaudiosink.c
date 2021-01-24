@@ -404,6 +404,7 @@ gst_jack_ring_buffer_acquire (GstAudioRingBuffer * buf,
   const char **ports;
   gint sample_rate, buffer_size;
   gint i, rate, bpf, channels, res;
+  gint port_num;
   jack_client_t *client;
 
   sink = GST_JACK_AUDIO_SINK (GST_OBJECT_PARENT (buf));
@@ -477,17 +478,25 @@ gst_jack_ring_buffer_acquire (GstAudioRingBuffer * buf,
     }
 
     for (i = 0; i < channels; i++) {
+
+      if (sink->port_start > 0){
+        port_num = i + sink->port_start;
+      } else {
+        port_num = i;
+      }
+      //GST_ERROR ( "Start ports %i , %i", port_num, sink->port_start);
+
       /* stop when all input ports are exhausted */
-      if (ports[i] == NULL) {
+      if (ports[port_num] == NULL) {
         /* post a warning that we could not connect all ports */
         GST_ELEMENT_WARNING (sink, RESOURCE, NOT_FOUND, (NULL),
             ("No more physical ports, leaving some ports unconnected"));
         break;
       }
       GST_DEBUG_OBJECT (sink, "try connecting to %s",
-          jack_port_name (sink->ports[i]));
+          jack_port_name (sink->ports[port_num]));
       /* connect the port to a physical port */
-      res = jack_connect (client, jack_port_name (sink->ports[i]), ports[i]);
+      res = jack_connect (client, jack_port_name (sink->ports[i]), ports[port_num]);
       if (res != 0 && res != EEXIST)
         goto cannot_connect;
     }
@@ -684,6 +693,7 @@ enum
 #define DEFAULT_PROP_SERVER 		NULL
 #define DEFAULT_PROP_CLIENT_NAME	NULL
 #define DEFAULT_PROP_PORT_PATTERN      	NULL
+#define DEFAULT_PROP_PORT_START      	0
 #define DEFAULT_PROP_TRANSPORT	GST_JACK_TRANSPORT_AUTONOMOUS
 
 enum
@@ -694,6 +704,7 @@ enum
   PROP_CLIENT,
   PROP_CLIENT_NAME,
   PROP_PORT_PATTERN,
+  PROP_PORT_START,
   PROP_TRANSPORT,
   PROP_LAST
 };
@@ -773,6 +784,19 @@ gst_jack_audio_sink_class_init (GstJackAudioSinkClass * klass)
           DEFAULT_PROP_PORT_PATTERN,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+   /**
+   * GstJackAudioSink:port-start
+   *
+   * autoconnect to ports starting from NUM, when NULL connect from first available port
+   *
+   * Since: 1.6
+   */
+  g_object_class_install_property (gobject_class, PROP_PORT_START,
+      g_param_spec_uint ("port-start", "port start",
+          "A number to select which port number to connect to first (NULL = first available port)",
+          0, 128, DEFAULT_PROP_PORT_START,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   /**
    * GstJackAudioSink:transport:
    *
@@ -833,6 +857,11 @@ gst_jack_audio_sink_dispose (GObject * object)
     sink->port_pattern = NULL;
   }
 
+  if (sink->port_start > 0) {
+   // g_free (sink->port_start);
+    sink->port_start = 0;
+  }
+
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
@@ -852,6 +881,10 @@ gst_jack_audio_sink_set_property (GObject * object, guint prop_id,
     case PROP_PORT_PATTERN:
       g_free (sink->port_pattern);
       sink->port_pattern = g_value_dup_string (value);
+      break;
+    case PROP_PORT_START:
+     // g_free (sink->port_start);
+      sink->port_start = g_value_get_uint (value);
       break;
     case PROP_CONNECT:
       sink->connect = g_value_get_enum (value);
@@ -889,6 +922,9 @@ gst_jack_audio_sink_get_property (GObject * object, guint prop_id,
       break;
     case PROP_PORT_PATTERN:
       g_value_set_string (value, sink->port_pattern);
+      break;
+    case PROP_PORT_START:
+      g_value_set_uint (value, sink->port_start);
       break;
     case PROP_CONNECT:
       g_value_set_enum (value, sink->connect);
