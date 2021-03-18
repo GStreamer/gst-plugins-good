@@ -83,7 +83,7 @@ struct _GstPulseSink
   GstStructure *properties;
   pa_proplist *proplist;
 
-  volatile gint format_lost;
+  gint format_lost;
   GstClockTime format_lost_time;
 };
 
